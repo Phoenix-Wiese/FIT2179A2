@@ -1,0 +1,10 @@
+Source,Target,Value_Billion_AUD
+Iron Ore Exports,Mining Company Revenue,131.0
+Iron Ore Exports,Federal Taxes,24.0
+Mining Company Revenue,WA Royalties,8.8
+Mining Company Revenue,Shareholder Profits,42.0
+WA Royalties,Hospitals,3.1
+WA Royalties,Infrastructure,2.7
+WA Royalties,Education,1.8
+Federal Taxes,Defence,12.0
+Federal Taxes,National Infrastructure,8.0
