@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iron Ore Sankey Diagram</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #faf4e8;
+        }
+        .container {
+            max-width: 1300px;
+            margin: 0 auto;
+            background: #fffaf0;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e4d7c1;
+        }
+        h2 {
+            color: #2f2f67;
+            margin: 0 0 10px 0;
+        }
+        .description {
+            color: #4b5563;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .filters {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .filter-group label {
+            font-weight: bold;
+            color: #333;
+            font-size: 14px;
+        }
+        .filter-group select {
+            padding: 8px;
+            border: 1px solid #d0d0d0;
+            border-radius: 4px;
+            background: white;
+            font-size: 14px;
+        }
+        #sankey {
+            width: 100%;
+            height: 700px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 300px;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .link {
+            fill: none;
+            stroke: #999;
+            stroke-opacity: 0.3;
+        }
+        .link:hover {
+            stroke-opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Iron Ore Trade Flow - Sankey Diagram</h2>
+        <p class="description">Global iron ore exports by value (USD billions). Hover over flows to see percentage breakdowns. Use filters to focus on specific countries.</p>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>Filter Source Country:</label>
+                <select id="sourceFilter">
+                    <option value="">All Sources</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Filter Target Country:</label>
+                <select id="targetFilter">
+                    <option value="">All Targets</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="sankey"></div>
+    </div>
+
+    <div class="tooltip" style="display: none;"></div>
+
+    <script>
+        const margin = { top: 20, right: 200, bottom: 20, left: 20 };
+        const width = 1200 - margin.left - margin.right;
+        const height = 700 - margin.top - margin.bottom;
+
+        const svg = d3.select("#sankey")
+            .append("svg")
+            .attr("width", width + margin.left + margin.right)
+            .attr("height", height + margin.top + margin.bottom)
+            .append("g")
+            .attr("transform", `translate(${margin.left},${margin.top})`);
+
+        const tooltip = d3.select(".tooltip");
+
+        let allData = [];
+
+        d3.csv("iron_ore_sankey_oec.csv").then(data => {
+            allData = data.map(d => ({
+                source: d.source,
+                target: d.target,
+                value: +d.value_usd_billion
+            }));
+
+            // Populate filter options
+            const sources = [...new Set(allData.map(d => d.source))].sort();
+            const targets = [...new Set(allData.map(d => d.target))].sort();
+
+            const sourceSelect = d3.select("#sourceFilter");
+            const targetSelect = d3.select("#targetFilter");
+
+            sourceSelect.selectAll("option.dynamic")
+                .data(sources)
+                .enter()
+                .append("option")
+                .attr("class", "dynamic")
+                .attr("value", d => d)
+                .text(d => d);
+
+            targetSelect.selectAll("option.dynamic")
+                .data(targets)
+                .enter()
+                .append("option")
+                .attr("class", "dynamic")
+                .attr("value", d => d)
+                .text(d => d);
+
+            // Update on filter change
+            sourceSelect.on("change", updateSankey);
+            targetSelect.on("change", updateSankey);
+
+            updateSankey();
+        });
+
+        function updateSankey() {
+            const sourceFilter = d3.select("#sourceFilter").property("value");
+            const targetFilter = d3.select("#targetFilter").property("value");
+
+            let filteredData = allData.filter(d => {
+                const sourceMatch = !sourceFilter || d.source === sourceFilter;
+                const targetMatch = !targetFilter || d.target === targetFilter;
+                return sourceMatch && targetMatch;
+            });
+
+            // Calculate totals for percentages
+            const sourceTotals = {};
+            const targetTotals = {};
+            filteredData.forEach(d => {
+                sourceTotals[d.source] = (sourceTotals[d.source] || 0) + d.value;
+                targetTotals[d.target] = (targetTotals[d.target] || 0) + d.value;
+            });
+
+            // Create nodes
+            const nodes = [];
+            const nodeMap = new Map();
+            const sources = [...new Set(filteredData.map(d => d.source))];
+            const targets = [...new Set(filteredData.map(d => d.target))];
+
+            sources.forEach((s, i) => {
+                const node = { id: s, type: "source", index: i };
+                nodes.push(node);
+                nodeMap.set(s, node);
+            });
+
+            targets.forEach((t, i) => {
+                const node = { id: t, type: "target", index: sources.length + i };
+                nodes.push(node);
+                nodeMap.set(t, node);
+            });
+
+            // Create links
+            const links = filteredData.map(d => ({
+                source: nodeMap.get(d.source).index,
+                target: nodeMap.get(d.target).index,
+                value: d.value,
+                sourceName: d.source,
+                targetName: d.target,
+                sourceTotal: sourceTotals[d.source],
+                targetTotal: targetTotals[d.target]
+            }));
+
+            // Create sankey layout
+            const sankey = d3.sankey()
+                .nodeWidth(15)
+                .nodePadding(60)
+                .size([width, height]);
+
+            const { nodes: graphNodes, links: graphLinks } = sankey({
+                nodes: nodes.map(d => ({ ...d })),
+                links: links.map(d => ({ ...d }))
+            });
+
+            // Color scale
+            const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
+
+            // Clear previous content
+            svg.selectAll("*").remove();
+
+            // Draw links
+            svg.selectAll(".link")
+                .data(graphLinks)
+                .enter()
+                .append("path")
+                .attr("class", "link")
+                .attr("d", d3.sankeyLinkHorizontal())
+                .attr("stroke-width", d => Math.max(1, d.width))
+                .attr("stroke", d => colorScale(d.source.id))
+                .on("mouseover", function(event, d) {
+                    const pctSource = (d.value / d.sourceTotal * 100).toFixed(1);
+                    const pctTarget = (d.value / d.targetTotal * 100).toFixed(1);
+                    tooltip.style("display", "block")
+                        .html(`
+                            <strong>${d.sourceName} → ${d.targetName}</strong><br/>
+                            Value: USD ${d.value.toFixed(2)}B<br/>
+                            % of ${d.sourceName}'s exports: ${pctSource}%<br/>
+                            % of ${d.targetName}'s imports: ${pctTarget}%
+                        `)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mousemove", function(event) {
+                    tooltip.style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("display", "none");
+                });
+
+            // Draw nodes
+            svg.selectAll(".node")
+                .data(graphNodes)
+                .enter()
+                .append("rect")
+                .attr("class", "node")
+                .attr("x", d => d.x0)
+                .attr("y", d => d.y0)
+                .attr("height", d => d.y1 - d.y0)
+                .attr("width", d => d.x1 - d.x0)
+                .attr("fill", d => colorScale(d.id))
+                .attr("stroke", "#333")
+                .attr("stroke-width", 1)
+                .on("mouseover", function(event, d) {
+                    tooltip.style("display", "block")
+                        .html(`<strong>${d.id}</strong>`)
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mousemove", function(event) {
+                    tooltip.style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("display", "none");
+                });
+
+            // Draw labels
+            svg.selectAll(".label")
+                .data(graphNodes)
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", d => d.x0 < width / 2 ? d.x1 + 6 : d.x0 - 6)
+                .attr("y", d => (d.y0 + d.y1) / 2)
+                .attr("dy", "0.35em")
+                .attr("text-anchor", d => d.x0 < width / 2 ? "start" : "end")
+                .attr("font-size", "12px")
+                .attr("font-weight", "bold")
+                .attr("fill", "#333")
+                .text(d => d.id);
+        }
+    </script>
+</body>
+</html>
