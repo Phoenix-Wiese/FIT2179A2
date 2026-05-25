@@ -1,7 +1,0 @@
-origin_port,origin_state,destination_port,destination_region,estimated_distance_nm,route_sequence,typical_vessel,primary_commodity,estimated_share_percent
-Port Hedland,Western Australia,Qingdao,Shandong,3613,Port Hedland -> Indian Ocean -> Lombok Strait -> Makassar Strait -> Celebes Sea -> South China Sea -> East China Sea -> Yellow Sea -> Qingdao,Capesize Bulk Carrier,Iron Ore,45
-Port Hedland,Western Australia,Rizhao,Shandong,3650,Port Hedland -> Indian Ocean -> Lombok Strait -> Makassar Strait -> South China Sea -> East China Sea -> Yellow Sea -> Rizhao,Capesize Bulk Carrier,Iron Ore,20
-Port Hedland,Western Australia,Tianjin,Hebei,3900,Port Hedland -> Indian Ocean -> Lombok Strait -> Makassar Strait -> South China Sea -> East China Sea -> Bohai Sea -> Tianjin,Very Large Ore Carrier,Iron Ore,10
-Dampier,Western Australia,Ningbo-Zhoushan,Zhejiang,4200,Dampier -> Indian Ocean -> Lombok Strait -> South China Sea -> East China Sea -> Ningbo,Capesize Bulk Carrier,Iron Ore,12
-Cape Lambert,Western Australia,Shanghai,Shanghai,4300,Cape Lambert -> Indian Ocean -> Lombok Strait -> South China Sea -> East China Sea -> Shanghai,Very Large Ore Carrier,Iron Ore,8
-Port Hedland,Western Australia,Zhanjiang,Guangdong,3200,Port Hedland -> Timor Sea -> Java Sea -> South China Sea -> Zhanjiang,Capesize Bulk Carrier,Iron Ore,5
