@@ -1,0 +1,2355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FIT-2179 Data Visualization 2</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Crimson+Pro:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+
+    <script src="https://cdn.jsdelivr.net/npm/vega@5.20.2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-lite@5.1.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vega-embed@6.17.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cartogram-chart"></script>
+    
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3-sankey@0.12"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
+
+    <style>
+        :root {
+            --bg-base: #faf4e8;
+            --bg-card: #fffaf0;
+            --bg-soft: #f8f0df;
+            --border: #e4d7c1;
+            --text-main: #374151;
+            --text-strong: #1f2937;
+            --heading: #2f2f67;
+            --primary: #3b7d6b;
+            --primary-dark: #2f5f52;
+            --accent: #9c6644;
+            --tooltip-bg: rgba(31, 41, 55, 0.9);
+            --white: #ffffff;
+            --font-display: 'Playfair Display', Georgia, serif;
+            --font-body: 'Crimson Pro', Georgia, serif;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-body);
+            font-size: 1.1rem;
+            line-height: 1.85;
+            color: var(--text-main);
+            letter-spacing: 0.01em;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: var(--font-display);
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: -0.02em;
+            color: var(--heading);
+        }
+
+        p {
+            max-width: 74ch;
+            line-height: 1.85;
+        }
+
+        strong {
+            font-weight: 600;
+        }
+
+        .section-label {
+            font-family: var(--font-body);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .chart-annotation {
+            font-family: var(--font-body);
+            font-style: italic;
+            font-size: 0.82rem;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-top: 0.5rem;
+        }
+
+        .sankey-filters {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .sankey-filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .sankey-filter-group label {
+            font-weight: bold;
+            color: var(--text-main);
+            font-size: 14px;
+        }
+
+        .sankey-filter-group select {
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--bg-card);
+            font-size: 14px;
+            color: var(--text-main);
+        }
+
+        #sankey-svg {
+            width: 100%;
+            border-radius: 4px;
+        }
+
+        .sankey-tooltip {
+            position: absolute;
+            background: var(--tooltip-bg);
+            color: var(--white);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .sankey-link {
+            fill: none;
+            stroke: #7a8a80;
+            stroke-opacity: 0.3;
+        }
+
+        .sankey-link:hover {
+            stroke-opacity: 0.8;
+        }
+
+        .flowmap-tooltip {
+            position: absolute;
+            background: var(--tooltip-bg);
+            color: var(--white);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .flow-ribbon {
+            fill: none;
+        }
+
+        .flow-ribbon:hover {
+            cursor: pointer;
+        }
+
+        .port-node {
+            fill: var(--primary);
+            stroke: var(--heading);
+            stroke-width: 2;
+            cursor: pointer;
+        }
+
+        .port-node:hover {
+            fill: var(--primary-dark);
+        }
+
+        .port-label {
+            font-size: 11px;
+            font-weight: bold;
+            fill: var(--text-strong);
+            text-anchor: middle;
+            pointer-events: none;
+        }
+
+        .royalty-tooltip {
+            position: absolute;
+            background: var(--tooltip-bg);
+            color: var(--white);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .content-container {
+            display: flex;
+            flex-direction: column;
+            gap: 5rem;
+        }
+
+        .section-card {
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .section-card:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .section-card > h2 {
+            font-family: var(--font-display);
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 1.2rem;
+            color: var(--heading);
+        }
+
+        .section-card > p:first-of-type {
+            margin-bottom: 1.5rem;
+            line-height: 1.85;
+            color: var(--text-main);
+            max-width: 74ch;
+        }
+
+        .hero-section h1 {
+            font-family: var(--font-display);
+        }
+
+        .key-stat {
+            display: inline-block;
+            background: var(--primary);
+            color: var(--white);
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-family: var(--font-body);
+            font-weight: 600;
+            margin: 0 0.25rem;
+            font-size: 0.95em;
+            letter-spacing: 0;
+        }
+
+        .insight-box strong {
+            font-family: var(--font-display);
+            font-size: 1rem;
+            color: var(--primary-dark);
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .chart-container {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background: var(--bg-soft);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary);
+        }
+
+        .insight-box {
+            background: linear-gradient(135deg, rgba(59, 125, 107, 0.08) 0%, rgba(156, 102, 68, 0.04) 100%);
+            border: 1px solid var(--border);
+            border-left: 5px solid var(--primary);
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border-radius: 6px;
+        }
+
+        .hero-section {
+            text-align: center;
+            padding: 4rem 2rem;
+            margin-bottom: 3rem;
+            background: linear-gradient(135deg, rgba(59, 125, 107, 0.08) 0%, rgba(248, 240, 223, 1) 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(59, 125, 107, 0.15);
+        }
+
+        .hero-section h1 {
+            margin: 1rem 0 0.5rem 0;
+            line-height: 1.2;
+            letter-spacing: -1px;
+        }
+
+        .hero-section p {
+            margin-top: 1rem;
+            opacity: 0.8;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--border), transparent);
+            margin: 3rem 0;
+        }
+
+        .grid-2-cols {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .grid-2-cols {
+                grid-template-columns: 1fr;
+            }
+            .content-container {
+                gap: 3rem;
+            }
+        }
+
+        .intro-section {
+            background: linear-gradient(135deg, rgba(59, 125, 107, 0.06), rgba(156, 102, 68, 0.03));
+            border-left: 5px solid var(--primary);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+
+        <div id="economical-reliance" class="section-card p-8">
+            <div class="section-label">Part 2: Economical Reliance</div>
+            <h2>Australia Export Composition Over Time</h2>
+            <p class="text-[#4b5563] text-base mb-4">Annual export values by category (AUD billions), 2014–2024.</p>
+            <div class="section-label">Figure 5</div>
+            <div class="chart-container">
+                <div id="export_line_chart" class="w-full"></div>
+            </div>
+            <div class="insight-box">
+                <strong>Key Findings:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    Iron ore rises from <span class="key-stat">AUD 74B</span> (2014) to a peak of <span class="key-stat">AUD 184B</span> (2022), then falls to <span class="key-stat">AUD 131B</span> (2024). Iron is one of Australia's most important exports, making up <span class="key-stat">20%</span> of total exports and <span class="key-stat">40%</span> of mineral exports.
+                </p>
+                <p class="text-[#374151] mt-2 text-sm italic">Iron ore drives volatility, but broader export categories have grown strongly.</p>
+            </div>
+            <p class="text-xs text-[#6b7280] mt-3 leading-relaxed">
+                <strong>Sources:</strong> Australian Bureau of Statistics (ABS) International Trade Data; Department of Industry – Resources and Energy Quarterly; OEC Observatory of Economic Complexity.
+            </p>
+        </div>
+
+        <div class="section-card p-8">
+            <div class="section-label">Part 2: Economical Reliance</div>
+            <h2>Iron Ore Royalty Flow — Alluvial View</h2>
+            <p class="text-[#4b5563] text-base mb-4">How export income flows from iron ore through taxes, royalties, and public spending (AUD billions).</p>
+            <div class="section-label">Figure 6</div>
+            <div class="chart-container">
+                <svg id="royalty-alluvial" style="width: 100%; height: 560px; border: 1px solid #e4d7c1; border-radius: 4px; background: #fffaf0;"></svg>
+            </div>
+            <div class="insight-box">
+                <strong>Key Findings:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    The flow maps <span class="key-stat">AUD 131.0B</span> from iron ore exports into mining revenue, with <span class="key-stat">AUD 42.0B</span> going to shareholder profits. Federal taxes are <span class="key-stat">AUD 24.0B</span>, including <span class="key-stat">AUD 12.0B</span> to defence.
+                </p>
+            </div>
+            <p class="text-xs text-[#6b7280] mt-3 leading-relaxed">
+                <strong>Sources:</strong> WA Royalties Information; BHP Annual Reports; Rio Tinto Annual Reports.
+            </p>
+        </div>
+
+        <div class="section-card p-8">
+            <div class="section-label">Part 2: Economical Reliance</div>
+            <h2>China Dependency vs Simandou Risk</h2>
+            <p class="text-[#4b5563] text-base mb-6">Side-by-side comparison of Australia's dependence on Chinese demand and the impact of new supply scenarios.</p>
+            <div class="grid-2-cols">
+                <div class="rounded-lg border border-[#e4d7c1] bg-[#f8f0df] p-6">
+                    <h3 class="text-lg text-[#2f2f67] mb-4 font-semibold">China Dependency Trend</h3>
+                    <div class="section-label">Figure 7</div>
+                    <div id="china_dependency_line_chart" class="w-full"></div>
+                </div>
+                <div class="rounded-lg border border-[#e4d7c1] bg-[#f8f0df] p-6">
+                    <h3 class="text-lg text-[#2f2f67] mb-4 font-semibold">Simandou Risk Scenarios</h3>
+                    <div class="section-label">Figure 8</div>
+                    <div id="simandou_risk_line_chart" class="w-full"></div>
+                </div>
+            </div>
+            <div class="insight-box mt-6">
+                <strong>Analysis:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    Chinese demand is strongly correlated with Australian exports, showing how tightly Australia's mining sector is coupled with China's steel production. The Simandou risk scenarios show that even under stable demand, prices could fall sharply if new supply comes online, or if a slowdown in Chinese property development occurs.
+                </p>
+            </div>
+            <p class="text-xs text-[#6b7280] mt-3 leading-relaxed">
+                <strong>Sources:</strong> World Steel Association Statistics.
+            </p>
+        </div>
+
+        
+
+        <div class="section-card p-8">
+            <div class="section-label">Part 3: Price Shock Risk</div>
+            <h2>Iron Ore Price vs. Australian GDP Growth — A Coupled Trajectory</h2>
+            <p class="text-[#4b5563] text-base mb-4">
+                Each point is a year (2010–2024), connected chronologically. The path traces how Australia's economic growth rate tracks the iron ore price cycle — revealing the structural coupling between commodity prices and national prosperity.
+            </p>
+            <div class="section-label">Figure 9</div>
+            <div class="chart-container" style="padding: 0; background: transparent; border-left: none;">
+                <svg id="scatter-path-chart" style="width: 100%; height: 520px; border-radius: 8px; background: #fffaf0; border: 1px solid #e4d7c1;"></svg>
+            </div>
+            <div class="insight-box">
+                <strong>Key Findings:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    The trajectory reveals two distinct regimes: the <span class="key-stat">2010–2014 boom</span> — high prices, stable growth — and the <span class="key-stat">2015–2016 bust</span> — prices halved from $168 to $56/t while growth decelerated. The 2021 price spike to <span class="key-stat">$162/t</span> briefly rescued growth after COVID, but the subsequent slide toward <span class="key-stat">~$108/t</span> by 2024 is compressing GDP growth back to <span class="key-stat">1.2%</span>. The path is never random — it loops with the iron ore cycle.
+                </p>
+                <p class="text-[#374151] mt-2 text-sm italic">A sustained fall below $80/t — plausible under Simandou expansion — would push Australia into growth territory not seen since the GFC.</p>
+            </div>
+        </div>
+
+        <div class="section-card p-8" style="border-left: 5px solid #9c6644; background: linear-gradient(135deg, #fffaf0, #fdf5ec);">
+            <h2 class="mb-4">Section 2 Takeaway: A Volatile Engine for a Whole Economy</h2>
+            <p class="text-[#374151] text-base leading-relaxed">
+                Iron ore is not one commodity among many — it makes up 20% of total exports and 40% of mineral exports, making it the engine of the Australian economy. That engine runs hot and cold: export revenue nearly tripled from AUD 74B in 2014 to AUD 184B in 2022, then fell 30% by 2024, all within a single decade. The royalty flow is also heavily privatised — of AUD 131B in exports, AUD 42B flows to shareholder profits before public revenue channels see significant returns. China's steel demand and Australian exports move in structural lockstep, meaning any slowdown in Chinese construction directly cuts Australian income. Meanwhile, Simandou looms as a supply shock: even under stable demand, Guinea's new iron ore project could depress prices by 20–30%, compressing Australian margins without any change in volumes. Australia earns enormously from iron ore, but has limited control over the price, the buyer, or the emerging competition.
+            </p>
+        </div>
+
+        <!-- Section 3: Diversification & Risk Mitigation -->
+        <div id="diversification" class="section-card p-8">
+            <div class="section-label">Part 3: Diversification & Risk Mitigation</div>
+            <h2>How Does Australia Compare? A Peer Diversification Radar</h2>
+            <p class="text-[#4b5563] text-base mb-4">
+                Australia measured against five resource-rich peers across six economic resilience dimensions. Larger area = more diversified, resilient economy. The comparison reveals the specific levers Australia must pull to reduce iron ore dependency.
+            </p>
+            <div id="radar-filters" class="flex flex-wrap gap-2 mb-4"></div>
+            <div class="section-label">Figure 10</div>
+            <div class="chart-container" style="padding: 0; background: transparent; border-left: none;">
+                <svg id="radar-chart" style="width: 100%; height: 600px; border-radius: 8px; background: #fffaf0; border: 1px solid #e4d7c1;"></svg>
+            </div>
+            <div class="insight-box">
+                <strong>Key Findings:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    Australia lags Norway on <span class="key-stat">sovereign wealth</span> and Canada on <span class="key-stat">manufacturing exports</span>, but leads peers on <span class="key-stat">services export growth</span>. Chile and Saudi Arabia both score low on diversification — cautionary parallels. Norway's large area shows that resource wealth can coexist with broad economic diversification given the right institutions.
+                </p>
+            </div>
+            <p class="text-xs text-[#6b7280] mt-3 leading-relaxed">
+                <strong>Sources:</strong> World Bank Export Diversification Index (2023); IMF Sovereign Wealth Fund data (2024); OECD Green Economy Outlook (2023); World Bank Services Trade data (2023); OECD R&D Expenditure stats (2023); UN Comtrade manufacturing export shares (2023).
+            </p>
+        </div>
+
+        <div class="section-card p-8">
+            <div class="section-label">Part 3: Diversification &amp; Risk Mitigation</div>
+            <h2>The Diversification Opportunity Ladder</h2>
+            <p class="text-[#4b5563] text-base mb-4">
+                Each row is an alternative export sector. The left dot is current revenue (AUD billions, 2024), the right dot is credible 2035 potential. The gap is the growth opportunity — collectively showing whether a diversified Australia can offset iron ore volatility.
+            </p>
+            <div class="section-label">Figure 11</div>
+            <div class="chart-container" style="padding: 0; background: transparent; border-left: none;">
+                <svg id="dumbbell-chart" style="width: 100%; height: 440px; border-radius: 8px; background: #fffaf0; border: 1px solid #e4d7c1;"></svg>
+            </div>
+            <div class="insight-box">
+                <strong>Key Findings:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    Green hydrogen and critical minerals represent the largest <em>relative</em> growth opportunities, while agriculture and education offer the most <em>reliable</em> near-term upside. Collectively, these seven sectors could grow from <span class="key-stat">~AUD 113B</span> to <span class="key-stat">~AUD 285B</span> by 2035 — enough to significantly cushion a sustained iron ore price collapse.
+                </p>
+            </div>
+            <p class="text-xs text-[#6b7280] mt-3 leading-relaxed">
+                <strong>Sources:</strong> DFAT Australian Trade in Goods and Services 2024; CSIRO Net Zero Australia: Green Hydrogen Roadmap (2023); Geoscience Australia Critical Minerals Prospectus (2024); Tourism Research Australia (2024); TEQSA International Education Data (2024); Australian Space Agency & Defence Industry estimates (Budget 2024–25).
+            </p>
+        </div>
+
+        <div class="section-card p-8">
+            <div class="section-label">Part 3: Diversification &amp; Risk Mitigation</div>
+            <h2>Export Portfolio Scenarios: Business-as-Usual vs. Managed Diversification</h2>
+            <p class="text-[#4b5563] text-base mb-4">
+                A diverging stacked bar comparing Australia's export portfolio in 2024, 2030, and 2035 under two scenarios. Segments extend left (iron ore + coal) and right (everything else). Narrowing the left dominance is the goal.
+            </p>
+            <div class="section-label">Figure 12</div>
+            <div class="chart-container" style="padding: 0; background: transparent; border-left: none;">
+                <svg id="scenario-bar-chart" style="width: 100%; height: 420px; border-radius: 8px; background: #fffaf0; border: 1px solid #e4d7c1;"></svg>
+            </div>
+            <div class="insight-box">
+                <strong>Key Findings:</strong>
+                <p class="text-[#374151] leading-relaxed">
+                    Under business-as-usual, iron ore and coal still dominate by 2035, leaving Australia exposed to the same shocks. Under managed diversification, the non-resource share grows from <span class="key-stat">55%</span> to <span class="key-stat">76%</span> by 2035. The window to rebalance is now: critical mineral supply chains are being locked in globally, and first-mover advantage in green hydrogen is rapidly closing.
+                </p>
+            </div>
+            <p class="text-xs text-[#6b7280] mt-3 leading-relaxed">
+                <strong>Sources:</strong> DFAT Australian Trade Statistics 2024 (baseline shares); Productivity Commission Trade &amp; Assistance Review (2023) for business-as-usual trajectory; CSIRO Net Zero Futures &amp; ANU Crawford School Diversification modelling (2023) for managed scenario projections.
+            </p>
+        </div>
+
+        <div class="section-card p-8 bg-gradient-to-br from-[#fffaf0] to-[#f0f7f4]" style="border-left: 5px solid #3b7d6b;">
+            <h2 class="mb-4">Section 3 Takeaway: The Case for Managed Diversification</h2>
+            <div class="grid-2-cols gap-6">
+                <div>
+                    <p class="text-base text-[#374151] leading-relaxed">
+                        The radar chart makes Australia's vulnerability structural and comparative — not just bad luck. Peer nations like Norway built sovereign wealth funds during their resource booms; Australia did not match that pace. Canada developed a parallel manufacturing export base; Australia's remains thin. These are <strong>policy choices</strong>, not geography, and they can be reversed.
+                    </p>
+                    <p class="text-base text-[#374151] leading-relaxed mt-4">
+                        The opportunity ladder shows the path forward is real. Seven alternative sectors collectively hold the capacity to grow from roughly <strong>AUD 113B to AUD 285B</strong> by 2035. Green hydrogen alone could become a $50B export industry — larger than iron ore was in 2014 — if Australia captures its natural advantage in renewable energy generation. Critical minerals offer a similar compounding opportunity as the global green transition accelerates demand for lithium, cobalt, and nickel.
+                    </p>
+                </div>
+                <div>
+                    <p class="text-base text-[#374151] leading-relaxed">
+                        The portfolio scenario chart frames the stakes as a choice, not a forecast. Business-as-usual leaves Australia almost as exposed in 2035 as today — iron ore and coal still accounting for over 40% of exports. Under managed diversification, that drops to under 25%, giving the economy far more buffer against price shocks, Chinese demand slowdowns, or the Simandou supply surge modelled earlier.
+                    </p>
+                    <p class="text-base text-[#374151] leading-relaxed mt-4">
+                        The window is narrowing. Global supply chains for green minerals and hydrogen are being established now. First-mover advantage in these markets will define the next 30 years of Australian trade in the same way the China iron ore boom defined the last 20. <strong>The risk of over-concentration is known; the tools to address it exist; the question is whether the policy will follow the evidence.</strong>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- End of handout divider -->
+    <div class="max-w-[1400px] w-full mx-auto px-6 my-10">
+        <div class="flex items-center gap-4">
+            <div class="flex-1 border-t-2 border-dashed border-[#c9b99a]"></div>
+            <span class="text-[#9c6644] text-sm italic flex items-center gap-2">&#9672; End of handout</span>
+            <div class="flex-1 border-t-2 border-dashed border-[#c9b99a]"></div>
+        </div>
+    </div>
+
+    <!-- Colophon / Footer -->
+    <footer class="max-w-[1400px] w-full mx-auto px-6 mb-16">
+        <div class="rounded-xl border border-[#e4d7c1] bg-[#fdf8f0] p-10">
+
+            <!-- Top row -->
+            <div class="flex justify-between items-start mb-6">
+                <span class="text-xs tracking-widest text-[#6b7280] uppercase">Colophon &middot; 13</span>
+                <div class="text-right">
+                    <div class="text-xl font-bold text-[#9c6644]">Iron Ore in Australia</div>
+                    <div class="text-xs tracking-widest text-[#6b7280] uppercase mt-1">V 1.0 &middot; 12 Figures &middot; 0 Maps</div>
+                </div>
+            </div>
+
+            <!-- Heading & description -->
+            <h2 style="font-family: Georgia, serif; font-size: 2.4rem; font-weight: 800; color: #1a1a2e; margin-bottom: 0.6rem;">Metadata &amp; Acknowledgements</h2>
+            <p class="text-sm italic text-[#4b5563] mb-6 max-w-xl leading-relaxed">
+                Long-scroll handout designed as part of FIT2179 Data Visualisation 2. Charts rendered with Vega-Lite v5 and D3.js v7, loading from inline JSON and CSV files in the <code class="bg-[#e9dcc2] px-1 rounded text-xs not-italic">data/</code> folder.
+            </p>
+
+            <hr class="border-[#e4d7c1] mb-8">
+
+            <!-- Four-column metadata grid -->
+            <div class="grid grid-cols-4 gap-8">
+
+                <!-- AUTHOR -->
+                <div>
+                    <p class="text-xs font-bold tracking-widest text-[#9c6644] uppercase mb-5">Author</p>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Name</p>
+                            <p class="text-[#1a1a2e]">Phoenix Wiese</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Unit</p>
+                            <p class="text-[#1a1a2e]">FIT2179</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Submission</p>
+                            <p class="text-[#1a1a2e]">Data Visualisation 2</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Date</p>
+                            <p class="text-[#1a1a2e]">21st May 2026</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- DATA SOURCES -->
+                <div>
+                    <p class="text-xs font-bold tracking-widest text-[#9c6644] uppercase mb-5">Data Sources</p>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Trade Profile</p>
+                            <p class="text-[#1a1a2e]">OEC Observatory of Economic Complexity</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Export Composition</p>
+                            <p class="text-[#1a1a2e]">ABS International Trade &middot; Resources &amp; Energy Quarterly</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Royalty Flow</p>
+                            <p class="text-[#1a1a2e]">WA Royalties &middot; BHP &amp; Rio Tinto Annual Reports</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Price &amp; Demand</p>
+                            <p class="text-[#1a1a2e]">World Steel Association Statistics</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Diversification</p>
+                            <p class="text-[#1a1a2e]">DFAT &middot; CSIRO &middot; Productivity Commission</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TOOLS & PROCESS -->
+                <div>
+                    <p class="text-xs font-bold tracking-widest text-[#9c6644] uppercase mb-5">Tools &amp; Process</p>
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Visualisation</p>
+                            <p class="text-[#1a1a2e]">Vega-Lite v5 &middot; D3.js v7</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Front-End</p>
+                            <p class="text-[#1a1a2e]">HTML &middot; CSS &middot; Tailwind &middot; GitHub Pages</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Typography</p>
+                            <p class="text-[#1a1a2e]">Georgia &middot; System Sans-Serif</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Code</p>
+                            <p class="text-[#1a1a2e]">https://phoenix-wiese.github.io/FIT2179A2/</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ACKNOWLEDGEMENTS -->
+                <div>
+                    <p class="text-xs font-bold tracking-widest text-[#9c6644] uppercase mb-5">Acknowledgements</p>
+                    <div class="space-y-4">
+                        
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Map Acknowledgements</p>
+                            <p class="text-[#1a1a2e]">&copy; Map Base: Natural Earth &middot; OpenStreetMap contributors</p>
+                        </div>
+                        <div>
+                            <p class="text-xs tracking-widest text-[#6b7280] uppercase mb-1">Copyright</p>
+                            <p class="text-[#1a1a2e]">&copy; 2026 Phoenix Wiese</p>
+                        </div>
+                        
+                    </div>
+                </div>
+
+            </div>
+
+            <hr class="border-[#e4d7c1] mt-10 mb-6">
+
+            <!-- Bottom bar -->
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-[#1a1a2e] flex items-center justify-center flex-shrink-0">
+                        <span class="text-white text-xs font-bold tracking-tight">MU</span>
+                    </div>
+                    <div>
+                        <p class="font-bold text-[#1a1a2e] text-sm leading-tight">Monash University</p>
+                        <p class="text-xs tracking-widest text-[#6b7280] uppercase">Made in Melbourne 2026</p>
+                    </div>
+                </div>
+                <div class="flex gap-8 text-xs tracking-widest text-[#6b7280] uppercase">
+                    <span>https://phoenix-wiese.github.io/FIT2179A2/</span>
+                    <span>FIT2179 Data Visualisation 2</span>
+                </div>
+            </div>
+
+        </div>
+    </footer>
+
+    <div class="sankey-tooltip" style="display: none;"></div>
+    <div class="flowmap-tooltip" style="display: none;"></div>
+    <div class="royalty-tooltip" style="display: none;"></div>
+
+    <script>
+        const specPath = "data/sample.json";
+        const exportLineSpec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "width": "container",
+            "height": 520,
+            "autosize": {"type": "fit", "contains": "padding"},
+            "background": "#fffaf0",
+            "data": {
+                "url": "data/australia_export_composition%20(1).csv"
+            },
+            "transform": [
+                {
+                    "fold": [
+                        "Iron_Ore_Billion_AUD",
+                        "Coal_Billion_AUD",
+                        "LNG_Billion_AUD",
+                        "Agriculture_Billion_AUD",
+                        "Other_Exports_Billion_AUD"
+                    ],
+                    "as": ["Category", "Value"]
+                },
+                {
+                    "calculate": "replace(datum.Category, '_Billion_AUD', '')",
+                    "as": "CategoryClean"
+                },
+                {
+                    "calculate": "replace(datum.CategoryClean, '_', ' ')",
+                    "as": "CategoryLabel"
+                }
+            ],
+            "mark": {
+                "type": "line",
+                "point": {
+                    "filled": true,
+                    "size": 64
+                },
+                "strokeWidth": 3
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "quantitative",
+                    "title": "Year",
+                    "axis": {
+                        "format": "d",
+                        "tickMinStep": 1
+                    }
+                },
+                "y": {
+                    "field": "Value",
+                    "type": "quantitative",
+                    "title": "Export Value (AUD Billions)"
+                },
+                "color": {
+                    "field": "CategoryLabel",
+                    "type": "nominal",
+                    "title": "Export Category",
+                    "scale": {
+                        "range": ["#3b7d6b", "#9c6644", "#457b9d", "#b56576", "#588157"]
+                    }
+                },
+                "tooltip": [
+                    { "field": "Year", "type": "quantitative" },
+                    { "field": "CategoryLabel", "type": "nominal", "title": "Category" },
+                    { "field": "Value", "type": "quantitative", "title": "AUD Billions" }
+                ]
+            },
+            "config": {
+                "view": {
+                    "stroke": "#e4d7c1"
+                },
+                "axis": {
+                    "labelFontSize": 13,
+                    "titleFontSize": 14
+                },
+                "legend": {
+                    "labelFontSize": 13,
+                    "titleFontSize": 14
+                }
+            }
+        };
+        const chinaDependencySpec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "width": "container",
+            "height": 340,
+            "autosize": {"type": "fit", "contains": "padding"},
+            "background": "#fffaf0",
+            "data": {
+                "url": "data/china_dependency_dataset.csv"
+            },
+            "transform": [
+                {
+                    "fold": [
+                        "Chinese_Steel_Production_Mt",
+                        "Australian_Iron_Ore_Exports_Mt"
+                    ],
+                    "as": ["Series", "Value"]
+                },
+                {
+                    "calculate": "replace(replace(datum.Series, '_Mt', ''), '_', ' ')",
+                    "as": "SeriesLabel"
+                }
+            ],
+            "mark": {
+                "type": "line",
+                "point": { "filled": true, "size": 48 },
+                "strokeWidth": 3
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "quantitative",
+                    "axis": { "format": "d", "tickMinStep": 1 },
+                    "title": "Year"
+                },
+                "y": {
+                    "field": "Value",
+                    "type": "quantitative",
+                    "title": "Volume (Mt)"
+                },
+                "color": {
+                    "field": "SeriesLabel",
+                    "type": "nominal",
+                    "title": null,
+                    "scale": {
+                        "range": ["#3b7d6b", "#9c6644"]
+                    }
+                },
+                "tooltip": [
+                    { "field": "Year", "type": "quantitative" },
+                    { "field": "SeriesLabel", "type": "nominal", "title": "Series" },
+                    { "field": "Value", "type": "quantitative", "title": "Mt" }
+                ]
+            },
+            "config": {
+                "view": { "stroke": "#e4d7c1" },
+                "axis": { "labelFontSize": 12, "titleFontSize": 13 },
+                "legend": { "labelFontSize": 12,"orient": "bottom-right" }
+            }
+        };
+        const simandouRiskSpec = {
+            "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+            "width": "container",
+            "height": 340,
+            "autosize": {"type": "fit", "contains": "padding"},
+            "background": "#fffaf0",
+            "data": {
+                "url": "data/simandou_risk_scenarios.csv"
+            },
+            "transform": [
+                {
+                    "fold": [
+                        "Stable_China_Demand",
+                        "China_Property_Slowdown",
+                        "Simandou_Expansion",
+                        "Green_Steel_Transition"
+                    ],
+                    "as": ["Scenario", "Price"]
+                },
+                {
+                    "calculate": "replace(datum.Scenario, '_', ' ')",
+                    "as": "ScenarioLabel"
+                }
+            ],
+            "mark": {
+                "type": "line",
+                "point": { "filled": true, "size": 40 },
+                "strokeWidth": 2.5
+            },
+            "encoding": {
+                "x": {
+                    "field": "Year",
+                    "type": "quantitative",
+                    "axis": { "format": "d", "tickMinStep": 1 },
+                    "title": "Year"
+                },
+                "y": {
+                    "field": "Price",
+                    "type": "quantitative",
+                    "title": "Iron Ore Price (USD/t)"
+                },
+                "color": {
+                    "field": "ScenarioLabel",
+                    "type": "nominal",
+                    "title": null,
+                    "scale": {
+                        "range": ["#3b7d6b", "#9c6644", "#457b9d", "#b56576"]
+                    }
+                },
+                "tooltip": [
+                    { "field": "Year", "type": "quantitative" },
+                    { "field": "ScenarioLabel", "type": "nominal", "title": "Scenario" },
+                    { "field": "Price", "type": "quantitative", "title": "USD/t" }
+                ]
+            },
+            "config": {
+                "view": { "stroke": "#e4d7c1" },
+                "axis": { "labelFontSize": 12, "titleFontSize": 13 },
+                "legend": { "labelFontSize": 12,"orient": "bottom-right" }
+            }
+        };
+        const mexicoBaseline = 12;
+        const productionByName = new Map([
+            ["Australia", { value: 960, continent: "Oceania" }],
+            ["Brazil", { value: 440, continent: "South America" }],
+            ["China", { value: 280, continent: "Asia" }],
+            ["India", { value: 270, continent: "Asia" }],
+            ["Russia", { value: 88, continent: "Europe" }],
+            ["Russian Federation", { value: 88, continent: "Europe" }],
+            ["Iran", { value: 77, continent: "Asia" }],
+            ["Canada", { value: 70, continent: "North America" }],
+            ["South Africa", { value: 61, continent: "Africa" }],
+            ["Kazakhstan", { value: 53, continent: "Asia" }],
+            ["United States", { value: 44, continent: "North America" }],
+            ["United States of America", { value: 44, continent: "North America" }],
+            ["Sweden", { value: 38, continent: "Europe" }],
+            ["Ukraine", { value: 36, continent: "Europe" }],
+            ["Peru", { value: 19, continent: "South America" }],
+            ["Chile", { value: 18, continent: "South America" }],
+            ["Turkey", { value: 17, continent: "Asia" }],
+            ["Turkiye", { value: 17, continent: "Asia" }],
+            ["Mauritania", { value: 13, continent: "Africa" }],
+            ["Mexico", { value: 12, continent: "North America" }]
+        ]);
+        
+        const barChartHost = document.getElementById("bar_chart");
+        let barResizeTimeout;
+        let lineResizeTimeout;
+        let comparisonResizeTimeout;
+
+        function renderBarChart() {
+            const chartWidth = Math.max(560, (barChartHost.clientWidth || 1080) - 8);
+            vegaEmbed("#bar_chart", specPath, {
+                actions: false,
+                width: chartWidth,
+                height: 560
+            })
+                .then(function(result) {})
+                .catch(console.error);
+        }
+
+        function renderLineChart() {
+            vegaEmbed("#export_line_chart", exportLineSpec, {
+                actions: false
+            })
+                .then(function(result) {})
+                .catch(console.error);
+        }
+
+        function renderComparisonCharts() {
+            vegaEmbed("#china_dependency_line_chart", chinaDependencySpec, {
+                actions: false
+            }).then(function(result) {}).catch(console.error);
+
+            vegaEmbed("#simandou_risk_line_chart", simandouRiskSpec, {
+                actions: false
+            }).then(function(result) {}).catch(console.error);
+        }
+
+        renderBarChart();
+        window.addEventListener("resize", function() {
+            clearTimeout(barResizeTimeout);
+            barResizeTimeout = setTimeout(renderBarChart, 160);
+        });
+
+        window.addEventListener("DOMContentLoaded", function() {
+            renderLineChart();
+            renderComparisonCharts();
+            window.addEventListener("resize", function() {
+                clearTimeout(lineResizeTimeout);
+                lineResizeTimeout = setTimeout(renderLineChart, 160);
+                clearTimeout(comparisonResizeTimeout);
+                comparisonResizeTimeout = setTimeout(renderComparisonCharts, 160);
+            });
+        });
+
+        fetch("https://vasturiano.github.io/cartogram-chart/example/world-population/ne_110m_admin_0_countries.json")
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(world) {
+                const geometries = world.objects.countries.geometries;
+
+                const antarcticaIndex = geometries.findIndex(function(feature) {
+                    return feature.properties && feature.properties.ISO_A2 === "AQ";
+                });
+                if (antarcticaIndex >= 0) {
+                    geometries.splice(antarcticaIndex, 1);
+                }
+
+                geometries.forEach(function(feature) {
+                    const name = feature.properties.NAME;
+                    const match = productionByName.get(name);
+                    feature.properties.iron_ore_prod = match ? match.value : mexicoBaseline;
+                    feature.properties.data_status = match ? "Observed" : "Missing: Mexico baseline";
+                    feature.properties.continent_group = match ? match.continent : "Missing / Mexico baseline";
+                });
+
+                const colorScale = d3.scaleThreshold()
+                    .domain([20, 50, 120, 300])
+                    .range(["#d9e6df", "#b8d0c5", "#8fb3a3", "#5f8f7d", "#2f5f52"]);
+
+                const chartHost = document.getElementById("cartogram_chart");
+                let resizeTimeout;
+
+                function renderCartogram() {
+                    const chartWidth = Math.max(760, Math.min(1080, (chartHost.clientWidth || 1080) - 8));
+                    chartHost.innerHTML = "";
+
+                    new Cartogram(chartHost)
+                        .topoJson(world)
+                        .topoObjectName("countries")
+                        .projection(d3.geoNaturalEarth1().center([0, 12]))
+                        .iterations(130)
+                        .value(function(feature) {
+                            return feature.properties.iron_ore_prod;
+                        })
+                        .color(function(feature) {
+                            return colorScale(feature.properties.iron_ore_prod);
+                        })
+                        .label(function(feature) {
+                            return feature.properties.NAME;
+                        })
+                        .units(" Mt")
+                        .valFormatter(d3.format(",.0f"))
+                        .tooltipContent(function(feature) {
+                            return "<div style='margin-top:4px;color:#374151;'>"
+                                + "Data status: " + feature.properties.data_status + "<br/>"
+                                + "Continent: " + feature.properties.continent_group
+                                + "</div>";
+                        })
+                        .width(chartWidth)
+                        .height(680);
+                }
+
+                renderCartogram();
+                window.addEventListener("resize", function() {
+                    clearTimeout(resizeTimeout);
+                    resizeTimeout = setTimeout(renderCartogram, 160);
+                });
+            })
+            .catch(function(error) {
+                const host = document.getElementById("cartogram_chart");
+                host.innerHTML = "<div style='border:1px solid #f59e0b;background:#fffbeb;color:#7c2d12;padding:16px;border-radius:8px;white-space:pre-wrap;'>"
+                    + "Cartogram failed to load.\n\n" + error.message + "\n\n"
+                    + "If this page is opened as file://, use Live Server to avoid fetch restrictions."
+                    + "</div>";
+                console.error(error);
+            });
+    </script>
+
+</body>
+</html>
+
+<script>
+    const svgElement = d3.select("#sankey-svg");
+    const width = parseInt(svgElement.style("width")) || 1200;
+    const height = parseInt(svgElement.style("height")) || 700;
+    const margin = { top: 20, right: 200, bottom: 20, left: 20 };
+
+    const svg = svgElement
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const tooltip = d3.select(".sankey-tooltip");
+    let allData = [];
+
+    d3.csv("data/iron_ore_sankey_oec.csv").then(data => {
+        allData = data.map(d => ({
+            source: d.source,
+            target: d.target,
+            value: +d.value_usd_billion
+        }));
+
+        const sources = [...new Set(allData.map(d => d.source))].sort();
+        const targets = [...new Set(allData.map(d => d.target))].sort();
+
+        const sourceSelect = d3.select("#sourceFilter");
+        const targetSelect = d3.select("#targetFilter");
+
+        sourceSelect.selectAll("option.dynamic")
+            .data(sources)
+            .enter()
+            .append("option")
+            .attr("class", "dynamic")
+            .attr("value", d => d)
+            .text(d => d);
+
+        targetSelect.selectAll("option.dynamic")
+            .data(targets)
+            .enter()
+            .append("option")
+            .attr("class", "dynamic")
+            .attr("value", d => d)
+            .text(d => d);
+
+        sourceSelect.on("change", updateSankey);
+        targetSelect.on("change", updateSankey);
+
+        updateSankey();
+    }).catch(error => {
+        console.error("Error loading CSV:", error);
+        svg.append("text")
+            .attr("x", (width - margin.left - margin.right) / 2)
+            .attr("y", (height - margin.top - margin.bottom) / 2)
+            .attr("text-anchor", "middle")
+            .style("fill", "red")
+            .text("Error loading data: " + error.message);
+    });
+
+    function updateSankey() {
+        const sourceFilter = d3.select("#sourceFilter").property("value");
+        const targetFilter = d3.select("#targetFilter").property("value");
+
+        let filteredData = allData.filter(d => {
+            const sourceMatch = !sourceFilter || d.source === sourceFilter;
+            const targetMatch = !targetFilter || d.target === targetFilter;
+            return sourceMatch && targetMatch;
+        });
+
+        const sourceTotals = {};
+        const targetTotals = {};
+        filteredData.forEach(d => {
+            sourceTotals[d.source] = (sourceTotals[d.source] || 0) + d.value;
+            targetTotals[d.target] = (targetTotals[d.target] || 0) + d.value;
+        });
+
+        const nodes = [];
+        const nodeMap = new Map();
+        const sources = [...new Set(filteredData.map(d => d.source))];
+        const targets = [...new Set(filteredData.map(d => d.target))];
+
+        sources.forEach((s, i) => {
+            const node = { id: s, type: "source", index: i };
+            nodes.push(node);
+            nodeMap.set(s, node);
+        });
+
+        targets.forEach((t, i) => {
+            const node = { id: t, type: "target", index: sources.length + i };
+            nodes.push(node);
+            nodeMap.set(t, node);
+        });
+
+        const links = filteredData.map(d => ({
+            source: nodeMap.get(d.source).index,
+            target: nodeMap.get(d.target).index,
+            value: d.value,
+            sourceName: d.source,
+            targetName: d.target,
+            sourceTotal: sourceTotals[d.source],
+            targetTotal: targetTotals[d.target]
+        }));
+
+        const sankey = d3.sankey()
+            .nodeWidth(15)
+            .nodePadding(60)
+            .size([width - margin.left - margin.right, height - margin.top - margin.bottom]);
+
+        const { nodes: graphNodes, links: graphLinks } = sankey({
+            nodes: nodes.map(d => ({ ...d })),
+            links: links.map(d => ({ ...d }))
+        });
+
+        const colorScale = d3.scaleOrdinal([
+            "#3b7d6b", "#9c6644", "#457b9d", "#b56576", "#588157",
+            "#7f5539", "#6d597a", "#4d7c5f", "#a67c52", "#5f6b7a"
+        ]);
+
+        svg.selectAll("*").remove();
+
+        svg.selectAll(".sankey-link")
+            .data(graphLinks)
+            .enter()
+            .append("path")
+            .attr("class", "sankey-link")
+            .attr("d", d3.sankeyLinkHorizontal())
+            .attr("stroke-width", d => Math.max(1, d.width))
+            .attr("stroke", d => colorScale(d.source.id))
+            .on("mouseover", function(event, d) {
+                const pctSource = (d.value / d.sourceTotal * 100).toFixed(1);
+                const pctTarget = (d.value / d.targetTotal * 100).toFixed(1);
+                tooltip.style("display", "block")
+                    .html(`
+                        <strong>${d.sourceName} → ${d.targetName}</strong><br/>
+                        Value: USD ${d.value.toFixed(2)}B<br/>
+                        % of ${d.sourceName}'s exports: ${pctSource}%<br/>
+                        % of ${d.targetName}'s imports: ${pctTarget}%
+                    `)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mousemove", function(event) {
+                tooltip.style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.style("display", "none");
+            });
+
+        svg.selectAll(".sankey-node")
+            .data(graphNodes)
+            .enter()
+            .append("rect")
+            .attr("class", "sankey-node")
+            .attr("x", d => d.x0)
+            .attr("y", d => d.y0)
+            .attr("height", d => d.y1 - d.y0)
+            .attr("width", d => d.x1 - d.x0)
+            .attr("fill", d => colorScale(d.id))
+            .attr("stroke", "#2f2f67")
+            .attr("stroke-width", 1)
+            .style("cursor", "pointer")
+            .on("mouseover", function(event, d) {
+                tooltip.style("display", "block")
+                    .html(`<strong>${d.id}</strong>`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mousemove", function(event) {
+                tooltip.style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 10) + "px");
+            })
+            .on("mouseout", function() {
+                tooltip.style("display", "none");
+            });
+
+        svg.selectAll(".sankey-label")
+            .data(graphNodes)
+            .enter()
+            .append("text")
+            .attr("class", "sankey-label")
+            .attr("x", d => d.x0 < (width - margin.left - margin.right) / 2 ? d.x1 + 6 : d.x0 - 6)
+            .attr("y", d => (d.y0 + d.y1) / 2)
+            .attr("dy", "0.35em")
+            .attr("text-anchor", d => d.x0 < (width - margin.left - margin.right) / 2 ? "start" : "end")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .attr("fill", "#374151")
+            .text(d => d.id);
+    }
+
+    // Flow Map Visualization
+    (function() {
+        const fmSvgEl = document.getElementById("flowmap-svg");
+        const fmWidth = fmSvgEl.getBoundingClientRect().width || 1200;
+        const fmHeight = 620;
+        fmSvgEl.setAttribute("height", fmHeight);
+
+        const fmSvg = d3.select("#flowmap-svg");
+        const fmG = fmSvg.append("g");
+        const fmTooltip = d3.select(".flowmap-tooltip");
+
+        // Fixed Mercator projection centred on the Australia-China corridor
+        // Bounding box: lon 95–135, lat -35–45
+        const fmProjection = d3.geoMercator()
+            .center([120, 10])
+            .scale(440)
+            .translate([fmWidth / 2, fmHeight / 2]);
+
+        const fmPath = d3.geoPath().projection(fmProjection);
+
+        // Named waypoint coordinates along real shipping corridors
+        const waypointCoords = {
+            "Port Hedland":    [118.58, -20.32],
+            "Dampier":         [116.68, -20.65],
+            "Cape Lambert":    [116.40, -20.53],
+            "Indian Ocean":    [112.0, -16.8],
+            "NW Shelf":        [116.2, -17.9],
+            "Lombok South":    [115.8,  -9.8],
+            "Lombok Strait":   [115.9,  -8.7],
+            "Lombok North":    [116.1,  -7.7],
+            "Makassar South":  [117.8,  -4.9],
+            "Makassar Mid":    [118.4,  -1.8],
+            "Makassar North":  [119.5,   1.1],
+            "Celebes Sea":     [121.6,   4.8],
+            "Sulu Sea":        [119.6,   8.9],
+            "Palawan Passage": [117.2,  11.8],
+            "South China Sea": [114.8,  15.2],
+            "Luzon West":      [118.6,  16.8],
+            "Luzon North":     [120.9,  19.6],
+            "Taiwan East":     [123.4,  23.8],
+            "East China Sea":  [124.2,  27.6],
+            "Yangtze Approach": [123.2, 30.8],
+            "Yellow Sea":      [123.0,  34.1],
+            "Bohai Entrance":  [120.8,  37.4],
+            "Bohai Sea":       [119.7,  39.0],
+            "Timor Sea":       [126.7, -11.4],
+            "Banda Arc":       [124.2,  -8.9],
+            "Flores Sea":      [121.0,  -7.7],
+            "Java Sea":        [110.2,  -5.7],
+            "Natuna Sea":      [109.7,   3.2],
+            "Qingdao":         [120.33,  36.07],
+            "Rizhao":          [119.18,  35.42],
+            "Tianjin":         [117.70,  39.13],
+            "Ningbo-Zhoushan": [121.86,  30.27],
+            "Shanghai":        [121.47,  31.23],
+            "Zhanjiang":       [110.33,  21.20]
+        };
+
+        // Destination-specific sea lanes to avoid crossing land masses.
+        const routeWaypoints = {
+            "Port Hedland->Qingdao": [
+                "Port Hedland", "NW Shelf", "Lombok South", "Lombok Strait", "Lombok North",
+                "Makassar South", "Makassar Mid", "Makassar North", "Celebes Sea",
+                "Luzon West", "Luzon North", "Taiwan East", "East China Sea", "Yellow Sea", "Qingdao"
+            ],
+            "Port Hedland->Rizhao": [
+                "Port Hedland", "NW Shelf", "Lombok South", "Lombok Strait", "Lombok North",
+                "Makassar South", "Makassar Mid", "Makassar North", "Celebes Sea",
+                "Luzon West", "Luzon North", "Taiwan East", "East China Sea", "Yellow Sea", "Rizhao"
+            ],
+            "Port Hedland->Tianjin": [
+                "Port Hedland", "NW Shelf", "Lombok South", "Lombok Strait", "Lombok North",
+                "Makassar South", "Makassar Mid", "Makassar North", "Celebes Sea",
+                "Luzon West", "Luzon North", "Taiwan East", "East China Sea",
+                "Yellow Sea", "Bohai Entrance", "Bohai Sea", "Tianjin"
+            ],
+            "Dampier->Ningbo-Zhoushan": [
+                "Dampier", "NW Shelf", "Lombok South", "Lombok Strait", "Lombok North",
+                "Makassar South", "Makassar Mid", "Makassar North", "Celebes Sea",
+                "Luzon West", "Luzon North", "Taiwan East", "East China Sea", "Yangtze Approach", "Ningbo-Zhoushan"
+            ],
+            "Cape Lambert->Shanghai": [
+                "Cape Lambert", "NW Shelf", "Lombok South", "Lombok Strait", "Lombok North",
+                "Makassar South", "Makassar Mid", "Makassar North", "Celebes Sea",
+                "Luzon West", "Luzon North", "Taiwan East", "East China Sea", "Yangtze Approach", "Shanghai"
+            ],
+            "Port Hedland->Zhanjiang": [
+                "Port Hedland", "NW Shelf", "Timor Sea", "Banda Arc", "Flores Sea",
+                "Java Sea", "Natuna Sea", "South China Sea", "Zhanjiang"
+            ]
+        };
+
+        // Port-only coordinates for dots & labels
+        const portCoordinates = {
+            "Port Hedland":    waypointCoords["Port Hedland"],
+            "Dampier":         waypointCoords["Dampier"],
+            "Cape Lambert":    waypointCoords["Cape Lambert"],
+            "Qingdao":         waypointCoords["Qingdao"],
+            "Rizhao":          waypointCoords["Rizhao"],
+            "Tianjin":         waypointCoords["Tianjin"],
+            "Ningbo-Zhoushan": waypointCoords["Ningbo-Zhoushan"],
+            "Shanghai":        waypointCoords["Shanghai"],
+            "Zhanjiang":       waypointCoords["Zhanjiang"]
+        };
+
+        // Catmull-Rom line generator through projected waypoints
+        const routeLine = d3.line()
+            .x(d => d[0])
+            .y(d => d[1])
+            .curve(d3.curveCatmullRom.alpha(0.5));
+
+        // Ocean background
+        fmSvg.insert("rect", "g")
+            .attr("width", fmWidth)
+            .attr("height", fmHeight)
+            .attr("fill", "#f5f0e4");
+
+        // Load world topology for land polygons
+        Promise.all([
+            fetch("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(r => r.json()),
+            d3.csv("data/australia_china_iron_ore_shipping_routes.csv")
+        ]).then(([world, routeData]) => {
+            const countries = topojson.feature(world, world.objects.countries);
+
+            // Draw land
+            fmG.selectAll(".land")
+                .data(countries.features)
+                .enter()
+                .append("path")
+                .attr("class", "land")
+                .attr("d", fmPath)
+                .attr("fill", "#e8dfc8")
+                .attr("stroke", "#b0a080")
+                .attr("stroke-width", 0.5);
+
+            const maxPercent = d3.max(routeData, d => +d.estimated_share_percent);
+
+            const ribbonColor = d3.scaleLinear()
+                .domain([0, maxPercent])
+                .range(["#9fcab8", "#2f5f52"]);
+
+            const strokeScale = d3.scaleLinear()
+                .domain([0, maxPercent])
+                .range([2, 20]);
+
+            // Draw route ribbons — traced through real nautical waypoints
+            fmG.selectAll(".flow-ribbon")
+                .data(routeData)
+                .enter()
+                .append("path")
+                .attr("class", "flow-ribbon")
+                .attr("d", d => {
+                    const key = `${d.origin_port}->${d.destination_port}`;
+                    const fallbackStops = d.route_sequence.split("->").map(s => s.trim());
+                    const stops = routeWaypoints[key] || fallbackStops;
+                    const pts = stops
+                        .map(s => waypointCoords[s])
+                        .filter(Boolean)
+                        .map(coord => fmProjection(coord))
+                        .filter(p => p);
+                    return pts.length >= 2 ? routeLine(pts) : "";
+                })
+                .attr("fill", "none")
+                .attr("stroke", d => ribbonColor(+d.estimated_share_percent))
+                .attr("stroke-width", d => strokeScale(+d.estimated_share_percent))
+                .attr("stroke-linecap", "round")
+                .attr("stroke-opacity", 0.65)
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("stroke-opacity", 1);
+                    fmTooltip.style("display", "block")
+                        .html(`<strong>${d.origin_port} → ${d.destination_port}</strong><br/>
+                               Region: ${d.destination_region}<br/>
+                               Distance: ${(+d.estimated_distance_nm).toLocaleString()} nm<br/>
+                               Share of exports: <strong>${d.estimated_share_percent}%</strong><br/>
+                               Vessel: ${d.typical_vessel}`)
+                        .style("left", (event.pageX + 12) + "px")
+                        .style("top", (event.pageY - 12) + "px");
+                })
+                .on("mousemove", function(event) {
+                    fmTooltip.style("left", (event.pageX + 12) + "px")
+                              .style("top", (event.pageY - 12) + "px");
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("stroke-opacity", 0.65);
+                    fmTooltip.style("display", "none");
+                });
+
+            // Port dots
+            const allPorts = [...new Set([
+                ...routeData.map(d => d.origin_port),
+                ...routeData.map(d => d.destination_port)
+            ])].map(p => ({ name: p, coords: portCoordinates[p] })).filter(p => p.coords);
+
+            fmG.selectAll(".port-node")
+                .data(allPorts)
+                .enter()
+                .append("circle")
+                .attr("class", "port-node")
+                .attr("cx", d => fmProjection(d.coords)[0])
+                .attr("cy", d => fmProjection(d.coords)[1])
+                .attr("r", 7)
+                .on("mouseover", function(event, d) {
+                    fmTooltip.style("display", "block")
+                        .html(`<strong>${d.name}</strong>`)
+                        .style("left", (event.pageX + 12) + "px")
+                        .style("top", (event.pageY - 12) + "px");
+                })
+                .on("mousemove", function(event) {
+                    fmTooltip.style("left", (event.pageX + 12) + "px")
+                              .style("top", (event.pageY - 12) + "px");
+                })
+                .on("mouseout", function() {
+                    fmTooltip.style("display", "none");
+                });
+
+            // Per-port label offsets to avoid overlap
+            const labelOffsets = {
+                "Port Hedland":    { dx: -10, dy: -10, anchor: "end" },
+                "Dampier":         { dx: -10, dy:   4, anchor: "end" },
+                "Cape Lambert":    { dx: -10, dy:  16, anchor: "end" },
+                "Qingdao":         { dx:  10, dy:  -8, anchor: "start" },
+                "Rizhao":          { dx:  10, dy:   4, anchor: "start" },
+                "Tianjin":         { dx:  10, dy:  16, anchor: "start" },
+                "Ningbo-Zhoushan": { dx:  10, dy:  -8, anchor: "start" },
+                "Shanghai":        { dx:  10, dy:   6, anchor: "start" },
+                "Zhanjiang":       { dx:  10, dy:   4, anchor: "start" }
+            };
+            fmG.selectAll(".port-label")
+                .data(allPorts)
+                .enter()
+                .append("text")
+                .attr("class", "port-label")
+                .attr("x", d => fmProjection(d.coords)[0] + (labelOffsets[d.name]?.dx ?? 10))
+                .attr("y", d => fmProjection(d.coords)[1] + (labelOffsets[d.name]?.dy ?? 4))
+                .attr("text-anchor", d => labelOffsets[d.name]?.anchor ?? "start")
+                .style("font-size", "11px")
+                .style("fill", "#1f2937")
+                .style("font-weight", "600")
+                .style("paint-order", "stroke")
+                .style("stroke", "#fffaf0")
+                .style("stroke-width", "3px")
+                .style("stroke-linejoin", "round")
+                .text(d => d.name);
+
+            // Legends
+            const legendX = 20, legendY = fmHeight - 100;
+            fmSvg.append("text").attr("x", legendX).attr("y", legendY - 10)
+                .attr("font-size", "18px").attr("font-weight", "bold").attr("fill", "#374151")
+                .text("Flow width (% of exports)");
+            [5, 20, 45].forEach((pct, i) => {
+                fmSvg.append("line")
+                    .attr("x1", legendX).attr("y1", legendY + i * 22)
+                    .attr("x2", legendX + 40).attr("y2", legendY + i * 22)
+                    .attr("stroke", ribbonColor(pct))
+                    .attr("stroke-width", strokeScale(pct))
+                    .attr("stroke-linecap", "round");
+                fmSvg.append("text")
+                    .attr("x", legendX + 52).attr("y", legendY + i * 22 + 4)
+                    .attr("font-size", "15px").attr("fill", "#374151").attr("font-weight", "600")
+                    .text(pct + "%");
+            });
+
+            const flowDefs = fmSvg.append("defs");
+            const flowGrad = flowDefs.append("linearGradient")
+                .attr("id", "flowmap-color-legend")
+                .attr("x1", "0%")
+                .attr("x2", "100%")
+                .attr("y1", "0%")
+                .attr("y2", "0%");
+
+            flowGrad.append("stop").attr("offset", "0%").attr("stop-color", ribbonColor(0));
+            flowGrad.append("stop").attr("offset", "100%").attr("stop-color", ribbonColor(maxPercent));
+
+            const colorLegendX = legendX + 250;
+            const colorLegendY = legendY - 8;
+            const colorLegendW = 180;
+            const colorLegendH = 14;
+
+            fmSvg.append("text")
+                .attr("x", colorLegendX)
+                .attr("y", colorLegendY - 10)
+                .attr("font-size", "14px")
+                .attr("font-weight", "700")
+                .attr("fill", "#374151")
+                .text("Route colour intensity");
+
+            fmSvg.append("rect")
+                .attr("x", colorLegendX)
+                .attr("y", colorLegendY)
+                .attr("width", colorLegendW)
+                .attr("height", colorLegendH)
+                .attr("rx", 3)
+                .attr("fill", "url(#flowmap-color-legend)")
+                .attr("stroke", "#d7ccb7")
+                .attr("stroke-width", 1);
+
+            fmSvg.append("text")
+                .attr("x", colorLegendX)
+                .attr("y", colorLegendY + colorLegendH + 14)
+                .attr("font-size", "12px")
+                .attr("font-weight", "600")
+                .attr("fill", "#4b5563")
+                .text("Lower share");
+
+            fmSvg.append("text")
+                .attr("x", colorLegendX + colorLegendW)
+                .attr("y", colorLegendY + colorLegendH + 14)
+                .attr("text-anchor", "end")
+                .attr("font-size", "12px")
+                .attr("font-weight", "600")
+                .attr("fill", "#4b5563")
+                .text("Higher share");
+
+        }).catch(err => {
+            console.error("Flow map error:", err);
+            d3.select("#flowmap-svg").append("text")
+                .attr("x", 20).attr("y", 40).attr("fill", "red")
+                .text("Error: " + err.message);
+        });
+    })();
+
+    // Royalty alluvial chart
+    (function() {
+        const alluvialEl = document.getElementById("royalty-alluvial");
+        if (!alluvialEl) {
+            return;
+        }
+
+        const alluvialTooltip = d3.select(".royalty-tooltip");
+        let resizeTimer;
+
+        function renderAlluvial() {
+            const fullWidth = alluvialEl.getBoundingClientRect().width || 1200;
+            const width = Math.max(760, fullWidth);
+            const height = 560;
+            const margin = { top: 16, right: 20, bottom: 16, left: 20 };
+            const innerWidth = width - margin.left - margin.right;
+            const innerHeight = height - margin.top - margin.bottom;
+            const labelSize = fullWidth < 760 ? 13 : 18;
+
+            alluvialEl.setAttribute("height", String(height));
+            alluvialEl.setAttribute("viewBox", `0 0 ${width} ${height}`);
+            alluvialEl.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+            const alluvialSvg = d3.select("#royalty-alluvial");
+            alluvialSvg.selectAll("*").remove();
+
+            const root = alluvialSvg
+                .append("g")
+                .attr("transform", `translate(${margin.left},${margin.top})`);
+
+            d3.csv("data/iron_ore_royalty_flow%20(1).csv", d3.autoType).then(rows => {
+                const nodeIds = Array.from(new Set(rows.flatMap(d => [d.Source, d.Target])));
+                const nodes = nodeIds.map(id => ({ id }));
+
+                const links = rows.map(d => ({
+                    source: d.Source,
+                    target: d.Target,
+                    value: +d.Value_Billion_AUD
+                }));
+
+                const sankey = d3.sankey()
+                    .nodeId(d => d.id)
+                    .nodeWidth(15)
+                    .nodePadding(26)
+                    .nodeSort(null)
+                    .extent([[130, 8], [innerWidth - 130, innerHeight - 8]]);
+
+                const graph = sankey({
+                    nodes: nodes.map(d => ({ ...d })),
+                    links: links.map(d => ({ ...d }))
+                });
+
+                const chartPalette = [
+                    "#3b7d6b", "#9c6644", "#457b9d", "#b56576", "#588157",
+                    "#7f5539", "#6d597a", "#4d7c5f", "#a67c52", "#5f6b7a"
+                ];
+                const colorScale = d3.scaleOrdinal(chartPalette);
+
+                const sourceTotals = d3.rollup(graph.links, v => d3.sum(v, d => d.value), d => d.source.id);
+                const targetTotals = d3.rollup(graph.links, v => d3.sum(v, d => d.value), d => d.target.id);
+
+                root.append("g")
+                    .selectAll("path")
+                    .data(graph.links)
+                    .join("path")
+                    .attr("d", d3.sankeyLinkHorizontal())
+                    .attr("fill", "none")
+                    .attr("stroke", "#7a8a80")
+                    .attr("stroke-width", d => Math.max(1, d.width))
+                    .attr("stroke-opacity", 0.35)
+                    .on("mouseover", function(event, d) {
+                        d3.select(this).attr("stroke-opacity", 0.8);
+                        const sourcePct = ((d.value / sourceTotals.get(d.source.id)) * 100).toFixed(1);
+                        const targetPct = ((d.value / targetTotals.get(d.target.id)) * 100).toFixed(1);
+                        alluvialTooltip
+                            .style("display", "block")
+                            .html(`<strong>${d.source.id} → ${d.target.id}</strong><br/>`
+                                + `Value: AUD ${d.value.toFixed(1)}B<br/>`
+                                + `% of ${d.source.id}: ${sourcePct}%<br/>`
+                                + `% of ${d.target.id}: ${targetPct}%`)
+                            .style("left", (event.pageX + 12) + "px")
+                            .style("top", (event.pageY - 12) + "px");
+                    })
+                    .on("mousemove", function(event) {
+                        alluvialTooltip
+                            .style("left", (event.pageX + 12) + "px")
+                            .style("top", (event.pageY - 12) + "px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).attr("stroke-opacity", 0.35);
+                        alluvialTooltip.style("display", "none");
+                    });
+
+                root.append("g")
+                    .selectAll("rect")
+                    .data(graph.nodes)
+                    .join("rect")
+                    .attr("x", d => d.x0)
+                    .attr("y", d => d.y0)
+                    .attr("width", d => d.x1 - d.x0)
+                    .attr("height", d => Math.max(1, d.y1 - d.y0))
+                    .attr("fill", d => colorScale(d.id))
+                    .attr("stroke", "#2f2f67")
+                    .attr("stroke-width", 1)
+                    .style("cursor", "pointer")
+                    .on("mouseover", function(event, d) {
+                        alluvialTooltip
+                            .style("display", "block")
+                            .html(`<strong>${d.id}</strong>`)
+                            .style("left", (event.pageX + 12) + "px")
+                            .style("top", (event.pageY - 12) + "px");
+                    })
+                    .on("mousemove", function(event) {
+                        alluvialTooltip
+                            .style("left", (event.pageX + 12) + "px")
+                            .style("top", (event.pageY - 12) + "px");
+                    })
+                    .on("mouseout", function() {
+                        alluvialTooltip.style("display", "none");
+                    });
+
+                root.append("g")
+                    .selectAll("text")
+                    .data(graph.nodes)
+                    .join("text")
+                    .attr("x", d => d.x0 < innerWidth / 2 ? d.x1 + 6 : d.x0 - 6)
+                    .attr("y", d => (d.y0 + d.y1) / 2)
+                    .attr("dy", "0.35em")
+                    .attr("text-anchor", d => d.x0 < innerWidth / 2 ? "start" : "end")
+                    .attr("fill", "#374151")
+                    .style("font-size", `${Math.max(12, labelSize - 2)}px`)
+                    .style("font-weight", "bold")
+                    .text(d => d.id);
+            }).catch(function(error) {
+                console.error("Alluvial chart error:", error);
+                root.append("text")
+                    .attr("x", 20)
+                    .attr("y", 34)
+                    .attr("fill", "red")
+                    .text("Error loading alluvial data: " + error.message);
+            });
+        }
+
+        renderAlluvial();
+        window.addEventListener("resize", function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(renderAlluvial, 180);
+        });
+    })();
+</script>
+
+<script>
+    // Connected Scatter Plot: Iron Ore Price vs Australia GDP Growth
+    (function() {
+        const data = [
+            { year: 2010, price: 148, gdp: 2.3, label: "2010" },
+            { year: 2011, price: 168, gdp: 2.7, label: "2011 \u2191Peak" },
+            { year: 2012, price: 128, gdp: 3.6, label: "2012" },
+            { year: 2013, price: 135, gdp: 2.5, label: "2013" },
+            { year: 2014, price:  97, gdp: 2.8, label: "2014" },
+            { year: 2015, price:  56, gdp: 2.4, label: "2015 \u2193Crash" },
+            { year: 2016, price:  58, gdp: 2.8, label: "2016" },
+            { year: 2017, price:  72, gdp: 2.4, label: "2017" },
+            { year: 2018, price:  69, gdp: 2.8, label: "2018" },
+            { year: 2019, price:  93, gdp: 2.0, label: "2019" },
+            { year: 2020, price: 109, gdp: -2.2, label: "2020 COVID" },
+            { year: 2021, price: 162, gdp: 5.2, label: "2021 \u2191Boom" },
+            { year: 2022, price: 120, gdp: 3.8, label: "2022" },
+            { year: 2023, price: 118, gdp: 2.0, label: "2023" },
+            { year: 2024, price: 108, gdp: 1.2, label: "2024" }
+        ];
+
+        const el = document.getElementById("scatter-path-chart");
+        const scatterTooltip = document.createElement("div");
+        scatterTooltip.style.cssText = "position:absolute;background:rgba(31,41,55,0.9);color:#fff;padding:10px;border-radius:6px;font-size:13px;pointer-events:none;z-index:1000;display:none;max-width:200px;";
+        document.body.appendChild(scatterTooltip);
+
+        function render() {
+            const fullW = el.getBoundingClientRect().width || 900;
+            const fullH = 520;
+            const margin = { top: 50, right: 160, bottom: 70, left: 70 };
+            const W = fullW - margin.left - margin.right;
+            const H = fullH - margin.top - margin.bottom;
+
+            el.setAttribute("viewBox", `0 0 ${fullW} ${fullH}`);
+            el.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+            const svg = d3.select("#scatter-path-chart");
+            svg.selectAll("*").remove();
+
+            const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+            const xScale = d3.scaleLinear().domain([45, 180]).range([0, W]);
+            const yScale = d3.scaleLinear().domain([-3.5, 6.5]).range([H, 0]);
+
+            // Time colour scale: light (2010) → dark (2024)
+            const colorTime = d3.scaleSequential(d3.interpolate("#a8d5c4", "#2f5f52"))
+                .domain([2010, 2024]);
+
+            // Zebra bands: GDP zones
+            const zones = [
+                { y0: -3.5, y1: 0,   fill: "rgba(181,101,118,0.06)", label: "Contraction" },
+                { y0: 0,    y1: 2,   fill: "rgba(248,240,223,0.5)",  label: "Slow growth" },
+                { y0: 2,    y1: 4,   fill: "rgba(59,125,107,0.06)",  label: "Healthy growth" },
+                { y0: 4,    y1: 6.5, fill: "rgba(59,125,107,0.13)",  label: "Strong growth" }
+            ];
+            zones.forEach(z => {
+                g.append("rect")
+                    .attr("x", 0).attr("width", W)
+                    .attr("y", yScale(z.y1)).attr("height", yScale(z.y0) - yScale(z.y1))
+                    .attr("fill", z.fill);
+                g.append("text")
+                    .attr("x", W + 6).attr("y", (yScale(z.y0) + yScale(z.y1)) / 2)
+                    .attr("dy", "0.35em").attr("font-size", "11px")
+                    .attr("fill", "#6b7280").attr("font-style", "italic")
+                    .text(z.label);
+            });
+
+            // Zero GDP line
+            g.append("line")
+                .attr("x1", 0).attr("x2", W)
+                .attr("y1", yScale(0)).attr("y2", yScale(0))
+                .attr("stroke", "#b56576").attr("stroke-dasharray", "5,4")
+                .attr("stroke-width", 1.2).attr("stroke-opacity", 0.6);
+
+            // Axes
+            const xAxis = d3.axisBottom(xScale).ticks(7).tickFormat(d => `$${d}`);
+            const yAxis = d3.axisLeft(yScale).ticks(7).tickFormat(d => `${d}%`);
+
+            g.append("g").attr("transform", `translate(0,${H})`).call(xAxis)
+                .selectAll("text").style("font-size", "12px");
+            g.append("g").call(yAxis)
+                .selectAll("text").style("font-size", "12px");
+
+            // Axis labels
+            g.append("text")
+                .attr("x", W / 2).attr("y", H + 50)
+                .attr("text-anchor", "middle").attr("font-size", "13px")
+                .attr("font-weight", "600").attr("fill", "#374151")
+                .text("Iron Ore Price (USD/t)");
+            g.append("text")
+                .attr("transform", "rotate(-90)")
+                .attr("x", -H / 2).attr("y", -52)
+                .attr("text-anchor", "middle").attr("font-size", "13px")
+                .attr("font-weight", "600").attr("fill", "#374151")
+                .text("Australia GDP Growth (%)");
+
+            // Title
+            svg.append("text")
+                .attr("x", margin.left + W / 2).attr("y", 22)
+                .attr("text-anchor", "middle").attr("font-size", "14px")
+                .attr("font-weight", "700").attr("fill", "#2f2f67")
+                .text("Iron Ore Price vs GDP Growth — Coupled Economic Trajectory (2010–2024)");
+
+            // Connecting path
+            const line = d3.line()
+                .x(d => xScale(d.price))
+                .y(d => yScale(d.gdp))
+                .curve(d3.curveCatmullRom.alpha(0.5));
+
+            // Draw path segments coloured by time
+            for (let i = 0; i < data.length - 1; i++) {
+                const mid = (data[i].year + data[i + 1].year) / 2;
+                g.append("path")
+                    .datum([data[i], data[i + 1]])
+                    .attr("fill", "none")
+                    .attr("stroke", colorTime(mid))
+                    .attr("stroke-width", 2.5)
+                    .attr("stroke-opacity", 0.85)
+                    .attr("d", line);
+            }
+
+            // Arrowhead defs
+            const defs = svg.append("defs");
+            data.forEach((d, i) => {
+                if (i === 0) return;
+                const prev = data[i - 1];
+                const dx = xScale(d.price) - xScale(prev.price);
+                const dy = yScale(d.gdp) - yScale(prev.gdp);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+                const midX = (xScale(prev.price) + xScale(d.price)) / 2;
+                const midY = (yScale(prev.gdp) + yScale(d.gdp)) / 2;
+                const col = colorTime((d.year + prev.year) / 2);
+                g.append("polygon")
+                    .attr("points", "0,-4 8,0 0,4")
+                    .attr("fill", col)
+                    .attr("opacity", 0.8)
+                    .attr("transform", `translate(${midX},${midY}) rotate(${angle})`);
+            });
+
+            // Dots + hover
+            g.selectAll(".sp-dot")
+                .data(data)
+                .join("circle")
+                .attr("class", "sp-dot")
+                .attr("cx", d => xScale(d.price))
+                .attr("cy", d => yScale(d.gdp))
+                .attr("r", 7)
+                .attr("fill", d => colorTime(d.year))
+                .attr("stroke", "#fff")
+                .attr("stroke-width", 1.5)
+                .style("cursor", "pointer")
+                .on("mouseover", function(event, d) {
+                    d3.select(this).attr("r", 10).attr("stroke-width", 2.5);
+                    scatterTooltip.style.display = "block";
+                    scatterTooltip.innerHTML = `<strong>${d.year}</strong><br/>
+                        Iron ore price: <strong>$${d.price}/t</strong><br/>
+                        GDP growth: <strong>${d.gdp}%</strong>`;
+                    scatterTooltip.style.left = (event.pageX + 12) + "px";
+                    scatterTooltip.style.top = (event.pageY - 12) + "px";
+                })
+                .on("mousemove", function(event) {
+                    scatterTooltip.style.left = (event.pageX + 12) + "px";
+                    scatterTooltip.style.top = (event.pageY - 12) + "px";
+                })
+                .on("mouseout", function() {
+                    d3.select(this).attr("r", 7).attr("stroke-width", 1.5);
+                    scatterTooltip.style.display = "none";
+                });
+
+            // Year labels for key points
+            const labeled = [2010, 2011, 2015, 2016, 2020, 2021, 2024];
+            g.selectAll(".sp-label")
+                .data(data.filter(d => labeled.includes(d.year)))
+                .join("text")
+                .attr("class", "sp-label")
+                .attr("x", d => xScale(d.price) + (d.price > 130 ? -12 : 11))
+                .attr("y", d => yScale(d.gdp) + (d.gdp < 0 ? 16 : -10))
+                .attr("text-anchor", d => d.price > 130 ? "end" : "start")
+                .attr("font-size", "11px").attr("font-weight", "700")
+                .attr("fill", d => colorTime(d.year))
+                .text(d => d.label);
+
+            // Colour legend (time)
+            const legW = 120, legH = 10;
+            const legX = W - legW, legY = -36;
+            const legDefs = svg.append("defs");
+            const grad = legDefs.append("linearGradient").attr("id", "sp-time-grad");
+            grad.append("stop").attr("offset", "0%").attr("stop-color", colorTime(2010));
+            grad.append("stop").attr("offset", "100%").attr("stop-color", colorTime(2024));
+            g.append("rect")
+                .attr("x", legX).attr("y", legY).attr("width", legW).attr("height", legH)
+                .attr("rx", 3).attr("fill", "url(#sp-time-grad)");
+            g.append("text").attr("x", legX).attr("y", legY - 4)
+                .attr("font-size", "11px").attr("fill", "#4b5563").text("2010");
+            g.append("text").attr("x", legX + legW).attr("y", legY - 4)
+                .attr("text-anchor", "end").attr("font-size", "11px").attr("fill", "#4b5563").text("2024");
+            g.append("text").attr("x", legX + legW / 2).attr("y", legY - 4)
+                .attr("text-anchor", "middle").attr("font-size", "11px")
+                .attr("font-weight", "600").attr("fill", "#374151").text("Year");
+        }
+
+        render();
+        let scatterTimer;
+        window.addEventListener("resize", function() {
+            clearTimeout(scatterTimer);
+            scatterTimer = setTimeout(render, 160);
+        });
+    })();
+</script>
+
+<script>
+// ── Radar Chart: Peer Diversification Comparison ──────────────────────────────
+(function() {
+    const axes = [
+        "Export\nDiversification", "Sovereign Wealth\n(% GDP)",
+        "Services\nExports %", "Manufacturing\nExports %",
+        "Green Economy\nIndex", "R&D Spend\n(% GDP)"
+    ];
+    const allCountries = [
+        { name: "Australia",    color: "#3b7d6b", values: [3.2, 2.8, 5.1, 4.2, 5.8, 4.4] },
+        { name: "Norway",       color: "#9c6644", values: [6.5, 9.2, 7.8, 6.0, 8.5, 7.1] },
+        { name: "Canada",       color: "#457b9d", values: [6.0, 1.5, 6.5, 7.5, 6.2, 6.8] },
+        { name: "Chile",        color: "#b56576", values: [2.8, 4.0, 3.5, 3.8, 4.1, 2.6] },
+        { name: "Saudi Arabia", color: "#588157", values: [2.0, 8.5, 3.0, 2.5, 3.5, 2.2] },
+    ];
+
+    // Active set — Australia always on, rest toggleable
+    const active = new Set(allCountries.map(c => c.name));
+
+    const el = document.getElementById("radar-chart");
+    const filterEl = document.getElementById("radar-filters");
+
+    const tip = document.createElement("div");
+    tip.style.cssText = "position:absolute;background:rgba(31,41,55,0.92);color:#fff;padding:10px 14px;border-radius:6px;font-size:13px;pointer-events:none;z-index:1000;display:none;";
+    document.body.appendChild(tip);
+
+    // Build filter buttons
+    allCountries.forEach(c => {
+        const btn = document.createElement("button");
+        btn.textContent = c.name;
+        btn.dataset.country = c.name;
+        btn.style.cssText = `padding:5px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;border:2px solid ${c.color};background:${c.color};color:#fff;transition:opacity 0.2s;`;
+        btn.addEventListener("click", () => {
+            if (c.name === "Australia") return; // Australia always visible
+            if (active.has(c.name)) {
+                active.delete(c.name);
+                btn.style.background = "transparent";
+                btn.style.color = c.color;
+            } else {
+                active.add(c.name);
+                btn.style.background = c.color;
+                btn.style.color = "#fff";
+            }
+            render();
+        });
+        filterEl.appendChild(btn);
+    });
+
+    function render() {
+        const countries = allCountries.filter(c => active.has(c.name));
+        const fullW = el.getBoundingClientRect().width || 900;
+        const fullH = 500;
+        el.setAttribute("viewBox", `0 0 ${fullW} ${fullH}`);
+        el.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+        const svg = d3.select("#radar-chart");
+        svg.selectAll("*").remove();
+
+        // Leave room for axis labels: 70px on each side, 50px top/bottom
+        const padX = 90, padY = 55;
+        const cx = fullW / 2;
+        const cy = fullH / 2 + 8;
+        const radius = Math.min(fullW - padX * 2, fullH - padY * 2) / 2;
+        const n = axes.length;
+        const levels = 5;
+        const angleSlice = (2 * Math.PI) / n;
+
+        const g = svg.append("g");
+
+        // Grid rings
+        for (let l = 1; l <= levels; l++) {
+            const r = radius * l / levels;
+            const pts = axes.map((_, i) => {
+                const a = angleSlice * i - Math.PI / 2;
+                return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+            });
+            g.append("polygon")
+                .attr("points", pts.map(p => p.join(",")).join(" "))
+                .attr("fill", l % 2 === 0 ? "rgba(228,215,193,0.2)" : "none")
+                .attr("stroke", "#d4c9b0").attr("stroke-width", 0.8).attr("stroke-opacity", 0.7);
+            g.append("text")
+                .attr("x", cx + 4).attr("y", cy - r + 3)
+                .attr("font-size", "9px").attr("fill", "#9ca3af")
+                .text(((l / levels) * 10).toFixed(0));
+        }
+
+        // Spokes
+        axes.forEach((_, i) => {
+            const a = angleSlice * i - Math.PI / 2;
+            g.append("line")
+                .attr("x1", cx).attr("y1", cy)
+                .attr("x2", cx + radius * Math.cos(a)).attr("y2", cy + radius * Math.sin(a))
+                .attr("stroke", "#c9bfa8").attr("stroke-width", 0.8);
+        });
+
+        // Axis labels
+        axes.forEach((label, i) => {
+            const a = angleSlice * i - Math.PI / 2;
+            const dist = radius + 42;
+            const lx = cx + dist * Math.cos(a);
+            const ly = cy + dist * Math.sin(a);
+            const lines = label.split("\n");
+            const anchor = Math.abs(Math.cos(a)) < 0.1 ? "middle" : Math.cos(a) > 0 ? "start" : "end";
+            const textEl = g.append("text")
+                .attr("x", lx).attr("y", ly)
+                .attr("text-anchor", anchor)
+                .attr("dominant-baseline", "middle")
+                .attr("font-size", "11px").attr("font-weight", "600").attr("fill", "#374151");
+            lines.forEach((ln, li) => {
+                textEl.append("tspan")
+                    .attr("x", lx)
+                    .attr("dy", li === 0 ? `${-(lines.length - 1) * 0.55}em` : "1.15em")
+                    .text(ln);
+            });
+        });
+
+        // Country blobs
+        countries.forEach(country => {
+            const pts = country.values.map((v, i) => {
+                const a = angleSlice * i - Math.PI / 2;
+                const r = (v / 10) * radius;
+                return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+            });
+            const pathStr = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p[0]},${p[1]}`).join(" ") + " Z";
+
+            g.append("path")
+                .attr("d", pathStr)
+                .attr("fill", country.color).attr("fill-opacity", 0.1)
+                .attr("stroke", country.color).attr("stroke-width", 2).attr("stroke-opacity", 0.9);
+
+            pts.forEach((p, i) => {
+                g.append("circle")
+                    .attr("cx", p[0]).attr("cy", p[1]).attr("r", 4)
+                    .attr("fill", country.color).attr("stroke", "#fff").attr("stroke-width", 1)
+                    .style("cursor", "pointer")
+                    .on("mouseover", function(event) {
+                        tip.style.display = "block";
+                        tip.innerHTML = `<strong>${country.name}</strong><br/>${axes[i].replace("\n", " ")}: <strong>${country.values[i].toFixed(1)} / 10</strong>`;
+                        tip.style.left = (event.pageX + 12) + "px";
+                        tip.style.top = (event.pageY - 12) + "px";
+                    })
+                    .on("mousemove", ev => { tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                    .on("mouseout", () => { tip.style.display = "none"; });
+            });
+        });
+
+        // Legend (top-right, inside SVG)
+        const legX = fullW - 130, legY = 16;
+        countries.forEach((c, i) => {
+            g.append("line")
+                .attr("x1", legX).attr("x2", legX + 16)
+                .attr("y1", legY + i * 20 + 5).attr("y2", legY + i * 20 + 5)
+                .attr("stroke", c.color).attr("stroke-width", 3);
+            g.append("text")
+                .attr("x", legX + 22).attr("y", legY + i * 20 + 9)
+                .attr("font-size", "11px").attr("fill", "#374151").text(c.name);
+        });
+
+        svg.append("text")
+            .attr("x", fullW / 2).attr("y", 4)
+            .attr("text-anchor", "middle").attr("font-size", "16px")
+            .attr("font-weight", "700").attr("fill", "#2f2f67")
+            .text("Economic Resilience Radar — Australia vs Resource-Rich Peers");
+    }
+
+    render();
+    let t;
+    window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(render, 160); });
+})();
+
+// ── Dumbbell Chart: Diversification Opportunity Ladder ────────────────────────
+(function() {
+    const sectors = [
+        { name: "Green Hydrogen",      current: 0.5, potential: 50, color: "#3b7d6b" },
+        { name: "Critical Minerals",   current: 8,   potential: 35, color: "#588157" },
+        { name: "Agriculture & Food",  current: 48,  potential: 70, color: "#9c6644" },
+        { name: "Education & Skills",  current: 24,  potential: 40, color: "#457b9d" },
+        { name: "Tourism",             current: 18,  potential: 45, color: "#7f5539" },
+        { name: "Digital & Tech Svcs", current: 12,  potential: 30, color: "#6d597a" },
+        { name: "Defence Industry",    current: 3,   potential: 15, color: "#5f6b7a" },
+    ];
+
+    const maxPotential = Math.max(...sectors.map(s => s.potential));
+
+    const el = document.getElementById("dumbbell-chart");
+    const tip = document.createElement("div");
+    tip.style.cssText = "position:absolute;background:rgba(31,41,55,0.92);color:#fff;padding:10px 14px;border-radius:6px;font-size:13px;pointer-events:none;z-index:1000;display:none;";
+    document.body.appendChild(tip);
+
+    function render() {
+        const fullW = el.getBoundingClientRect().width || 900;
+        const fullH = 440;
+        // Label col: 155px, right pad: 20px, top: title+legend, bottom: axis
+        const margin = { top: 56, right: 20, bottom: 44, left: 155 };
+        const W = fullW - margin.left - margin.right;
+        const H = fullH - margin.top - margin.bottom;
+        const rowH = H / sectors.length;
+
+        el.setAttribute("viewBox", `0 0 ${fullW} ${fullH}`);
+        el.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+        const svg = d3.select("#dumbbell-chart");
+        svg.selectAll("*").remove();
+
+        // Domain: 0 → maxPotential + 5% padding
+        const xMax = maxPotential * 1.05;
+        const xScale = d3.scaleLinear().domain([0, xMax]).range([0, W]);
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Title
+        svg.append("text")
+            .attr("x", margin.left + W / 2).attr("y", 18)
+            .attr("text-anchor", "middle").attr("font-size", "13px")
+            .attr("font-weight", "700").attr("fill", "#2f2f67")
+            .text("Diversification Opportunity Ladder — 2024 Current vs 2035 Potential (AUD Billions)");
+
+        // Grid + X axis
+        g.append("g").attr("transform", `translate(0,${H})`)
+            .call(d3.axisBottom(xScale).ticks(7).tickFormat(d => `$${d}B`))
+            .selectAll("text").style("font-size", "11px");
+
+        xScale.ticks(7).forEach(tv => {
+            g.append("line")
+                .attr("x1", xScale(tv)).attr("x2", xScale(tv))
+                .attr("y1", 0).attr("y2", H)
+                .attr("stroke", "#e4d7c1").attr("stroke-width", 0.8);
+        });
+
+        // Legend — top right inside g
+        const legItems = [
+            { label: "2024 (current)", filled: false },
+            { label: "2035 (potential)", filled: true }
+        ];
+        legItems.forEach((li, i) => {
+            g.append("circle")
+                .attr("cx", W - 200 + i * 110 + 8).attr("cy", -22)
+                .attr("r", 7)
+                .attr("fill", li.filled ? "#3b7d6b" : "#fffaf0")
+                .attr("stroke", "#3b7d6b").attr("stroke-width", 2);
+            g.append("text")
+                .attr("x", W - 200 + i * 110 + 20).attr("y", -18)
+                .attr("font-size", "11px").attr("fill", "#374151")
+                .text(li.label);
+        });
+
+        // Sector rows
+        sectors.forEach((s, i) => {
+            const y = i * rowH + rowH / 2;
+
+            g.append("rect")
+                .attr("x", -margin.left + 2).attr("y", y - rowH / 2 + 2)
+                .attr("width", W + margin.left - 4).attr("height", rowH - 4)
+                .attr("fill", i % 2 === 0 ? "rgba(248,240,223,0.5)" : "transparent")
+                .attr("rx", 2);
+
+            // Row label clipped to left margin
+            g.append("text")
+                .attr("x", -12).attr("y", y).attr("dy", "0.35em")
+                .attr("text-anchor", "end").attr("font-size", "12px")
+                .attr("font-weight", "600").attr("fill", "#374151")
+                .text(s.name);
+
+            // Connecting bar
+            g.append("line")
+                .attr("x1", xScale(s.current)).attr("x2", xScale(s.potential))
+                .attr("y1", y).attr("y2", y)
+                .attr("stroke", s.color).attr("stroke-width", 3.5).attr("stroke-opacity", 0.3);
+
+            // Growth label — only if gap is wide enough
+            const gapPx = xScale(s.potential) - xScale(s.current);
+            const mid = (xScale(s.current) + xScale(s.potential)) / 2;
+            if (gapPx > 24) {
+                g.append("text")
+                    .attr("x", mid).attr("y", y - 12)
+                    .attr("text-anchor", "middle").attr("font-size", "10px")
+                    .attr("fill", s.color).attr("font-weight", "700")
+                    .text(`+$${(s.potential - s.current).toFixed(s.potential - s.current < 10 ? 1 : 0)}B`);
+            }
+
+            // Current dot (hollow)
+            g.append("circle")
+                .attr("cx", xScale(s.current)).attr("cy", y).attr("r", 7)
+                .attr("fill", "#fffaf0").attr("stroke", s.color).attr("stroke-width", 2.5)
+                .style("cursor", "pointer")
+                .on("mouseover", function(ev) {
+                    tip.style.display = "block";
+                    tip.innerHTML = `<strong>${s.name}</strong><br/>Current (2024): <strong>$${s.current}B</strong>`;
+                    tip.style.left = (ev.pageX + 12) + "px"; tip.style.top = (ev.pageY - 12) + "px";
+                })
+                .on("mousemove", ev => { tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mouseout", () => { tip.style.display = "none"; });
+
+            // Potential dot (filled)
+            g.append("circle")
+                .attr("cx", xScale(s.potential)).attr("cy", y).attr("r", 7)
+                .attr("fill", s.color).attr("stroke", "#fff").attr("stroke-width", 1.5)
+                .style("cursor", "pointer")
+                .on("mouseover", function(ev) {
+                    tip.style.display = "block";
+                    tip.innerHTML = `<strong>${s.name}</strong><br/>2035 potential: <strong>$${s.potential}B</strong>`;
+                    tip.style.left = (ev.pageX + 12) + "px"; tip.style.top = (ev.pageY - 12) + "px";
+                })
+                .on("mousemove", ev => { tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mouseout", () => { tip.style.display = "none"; });
+        });
+    }
+
+    render();
+    let t;
+    window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(render, 160); });
+})();
+
+// ── Diverging Stacked Bar: Portfolio Scenarios ─────────────────────────────────
+(function() {
+    const rows = [
+        { label: "2024 (Actual)",          group: "Baseline",             ironOre: 32, coal: 13, other: 55 },
+        { label: "2030 Business-as-Usual", group: "Business-as-Usual",   ironOre: 30, coal: 12, other: 58 },
+        { label: "2035 Business-as-Usual", group: "Business-as-Usual",   ironOre: 29, coal: 11, other: 60 },
+        { label: "2030 Diversified",       group: "Managed Diversif.",    ironOre: 24, coal:  9, other: 67 },
+        { label: "2035 Diversified",       group: "Managed Diversif.",    ironOre: 18, coal:  6, other: 76 },
+    ];
+
+    const groupColors = {
+        "Baseline":           "#6b7280",
+        "Business-as-Usual":  "#9c6644",
+        "Managed Diversif.":  "#3b7d6b",
+    };
+
+    const el = document.getElementById("scenario-bar-chart");
+    const tip = document.createElement("div");
+    tip.style.cssText = "position:absolute;background:rgba(31,41,55,0.92);color:#fff;padding:10px 14px;border-radius:6px;font-size:13px;pointer-events:none;z-index:1000;display:none;";
+    document.body.appendChild(tip);
+
+    function render() {
+        const fullW = el.getBoundingClientRect().width || 900;
+        const fullH = 420;
+        // Generous margins: left for row labels, bottom for legend + axis
+        const margin = { top: 52, right: 16, bottom: 72, left: 180 };
+        const W = fullW - margin.left - margin.right;
+        const H = fullH - margin.top - margin.bottom;
+        const bH = Math.max(28, (H / rows.length) - 10);
+
+        el.setAttribute("viewBox", `0 0 ${fullW} ${fullH}`);
+        el.setAttribute("preserveAspectRatio", "xMidYMid meet");
+
+        const svg = d3.select("#scenario-bar-chart");
+        svg.selectAll("*").remove();
+
+        // Pivot = resource share in 2024 (45%)
+        const pivot = 45;
+        const xScale = d3.scaleLinear().domain([-pivot, 100 - pivot]).range([0, W]);
+        const centerX = xScale(0);
+
+        const g = svg.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+
+        // Title
+        svg.append("text")
+            .attr("x", margin.left + W / 2).attr("y", 20)
+            .attr("text-anchor", "middle").attr("font-size", "13px")
+            .attr("font-weight", "700").attr("fill", "#2f2f67")
+            .text("Export Portfolio Scenarios — Resource vs Diversified Share (% of total exports)");
+
+        // Zone header labels
+        g.append("text").attr("x", centerX - 10).attr("y", -28)
+            .attr("text-anchor", "end").attr("font-size", "11px").attr("font-weight", "700")
+            .attr("fill", "#b56576").text("← Resource Dependent");
+        g.append("text").attr("x", centerX + 10).attr("y", -28)
+            .attr("text-anchor", "start").attr("font-size", "11px").attr("font-weight", "700")
+            .attr("fill", "#3b7d6b").text("Diversified →");
+
+        // Subtle background zones
+        g.append("rect")
+            .attr("x", 0).attr("y", -6).attr("width", centerX).attr("height", H + 6)
+            .attr("fill", "rgba(181,101,118,0.04)");
+        g.append("rect")
+            .attr("x", centerX).attr("y", -6).attr("width", W - centerX).attr("height", H + 6)
+            .attr("fill", "rgba(59,125,107,0.04)");
+
+        // Center line
+        g.append("line")
+            .attr("x1", centerX).attr("x2", centerX).attr("y1", -6).attr("y2", H)
+            .attr("stroke", "#9ca3af").attr("stroke-width", 1.2).attr("stroke-dasharray", "4,3");
+
+        // Divider after row 0 (between Baseline and BAU)
+        const rowH = H / rows.length;
+        g.append("line")
+            .attr("x1", -margin.left + 4).attr("x2", W)
+            .attr("y1", rowH * 1 - 5).attr("y2", rowH * 1 - 5)
+            .attr("stroke", "#d1c7b5").attr("stroke-dasharray", "5,4").attr("stroke-width", 1);
+        // Divider between BAU and Diversified
+        g.append("line")
+            .attr("x1", -margin.left + 4).attr("x2", W)
+            .attr("y1", rowH * 3 - 5).attr("y2", rowH * 3 - 5)
+            .attr("stroke", "#d1c7b5").attr("stroke-dasharray", "5,4").attr("stroke-width", 1);
+
+        rows.forEach((row, i) => {
+            const yMid = i * rowH + rowH / 2;
+            const yTop = yMid - bH / 2;
+            const gc = groupColors[row.group];
+            const ironColor = row.group === "Managed Diversif." ? "#c47a7a" : "#b56576";
+            const coalColor = row.group === "Managed Diversif." ? "#d4a070" : "#c49060";
+            const otherColor = row.group === "Managed Diversif." ? "#3b7d6b" : "#8fb3a3";
+
+            // Row label — left of chart, anchored to margin
+            g.append("text")
+                .attr("x", -12).attr("y", yMid).attr("dy", "0.35em")
+                .attr("text-anchor", "end").attr("font-size", "12px")
+                .attr("font-weight", "700").attr("fill", gc)
+                .text(row.label);
+
+            // Iron ore bar (left of center)
+            const ironW = centerX - xScale(-row.ironOre);
+            g.append("rect")
+                .attr("x", centerX - ironW).attr("y", yTop)
+                .attr("width", ironW).attr("height", bH)
+                .attr("fill", ironColor).attr("rx", 2)
+                .style("cursor", "pointer")
+                .on("mouseover", ev => { tip.style.display="block"; tip.innerHTML=`<strong>${row.label}</strong><br/>Iron Ore: <strong>${row.ironOre}%</strong>`; tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mousemove", ev => { tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mouseout", () => { tip.style.display="none"; });
+
+            // Coal bar (left, abutting iron ore)
+            const coalW = centerX - xScale(-row.coal);
+            g.append("rect")
+                .attr("x", centerX - ironW - coalW).attr("y", yTop)
+                .attr("width", coalW).attr("height", bH)
+                .attr("fill", coalColor).attr("rx", 2)
+                .style("cursor", "pointer")
+                .on("mouseover", ev => { tip.style.display="block"; tip.innerHTML=`<strong>${row.label}</strong><br/>Coal: <strong>${row.coal}%</strong>`; tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mousemove", ev => { tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mouseout", () => { tip.style.display="none"; });
+
+            // Other exports bar (right)
+            const otherW = xScale(row.other - pivot) - xScale(0);
+            g.append("rect")
+                .attr("x", centerX).attr("y", yTop)
+                .attr("width", otherW).attr("height", bH)
+                .attr("fill", otherColor).attr("rx", 2)
+                .style("cursor", "pointer")
+                .on("mouseover", ev => { tip.style.display="block"; tip.innerHTML=`<strong>${row.label}</strong><br/>Other exports: <strong>${row.other}%</strong>`; tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mousemove", ev => { tip.style.left=(ev.pageX+12)+"px"; tip.style.top=(ev.pageY-12)+"px"; })
+                .on("mouseout", () => { tip.style.display="none"; });
+
+            // Pct labels inside bars (if wide enough)
+            if (ironW > 26)
+                g.append("text").attr("x", centerX - ironW / 2).attr("y", yMid).attr("dy", "0.35em")
+                    .attr("text-anchor", "middle").attr("font-size", "10px").attr("fill", "#fff").attr("font-weight", "700")
+                    .text(`${row.ironOre}%`);
+            if (coalW > 26)
+                g.append("text").attr("x", centerX - ironW - coalW / 2).attr("y", yMid).attr("dy", "0.35em")
+                    .attr("text-anchor", "middle").attr("font-size", "10px").attr("fill", "#fff").attr("font-weight", "700")
+                    .text(`${row.coal}%`);
+            if (otherW > 26)
+                g.append("text").attr("x", centerX + otherW / 2).attr("y", yMid).attr("dy", "0.35em")
+                    .attr("text-anchor", "middle").attr("font-size", "10px").attr("fill", "#fff").attr("font-weight", "700")
+                    .text(`${row.other}%`);
+        });
+
+        // Legend — inside bottom of chart area
+        const legend = [
+            { color: "#b56576", label: "Iron Ore" },
+            { color: "#c49060", label: "Coal" },
+            { color: "#3b7d6b", label: "All Other Exports" },
+        ];
+        const legY = H + 30;
+        const legSpacing = W / legend.length;
+        legend.forEach((l, i) => {
+            const lx = i * legSpacing + legSpacing / 2 - 50;
+            g.append("rect").attr("x", lx).attr("y", legY).attr("width", 13).attr("height", 13).attr("rx", 2).attr("fill", l.color);
+            g.append("text").attr("x", lx + 18).attr("y", legY + 10).attr("font-size", "11px").attr("fill", "#374151").text(l.label);
+        });
+    }
+
+    render();
+    let t;
+    window.addEventListener("resize", () => { clearTimeout(t); t = setTimeout(render, 160); });
+})();
+</script>
